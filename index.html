@@ -110,7 +110,7 @@ With a fully Caffeinated compiler, Fortran programmers can produce parallel exec
 <ul>
 <li>Write as much of Caffeine as possible in Fortran:<ul>
 <li>Writing the runtime library in the language of the users increases the likelihood of community contributions.</li>
-<li>Writing the runtime library in Fortran obviates the need to directly manipulate compiler descriptors throughout much of Caffeine and allows Caffeine's underlying C layer to receive the Fortran-standard <code>CFI_cdesc_t</code> desriptor, which imwill make it easier to support multiple compilers.</li>
+<li>Writing the runtime library in Fortran obviates the need to directly manipulate compiler descriptors throughout much of Caffeine and allows Caffeine's underlying C layer to receive the Fortran-standard <code>CFI_cdesc_t</code> descriptor, which will make it easier to support multiple compilers.</li>
 <li>Writing most of Caffeine in Fortran offers the potential exploiting Fortran's rich array syntax, concurrent loop iterations (<code>do concurrent</code>), <code>pure</code> procedures and related features. Currently, these play a role only in one place: C callbacks to user-provided, <code>pure</code> functions that can be invoked inside a <code>do concurrent</code> block during the execution of <code>co_reduce</code>.</li>
 </ul>
 </li>
@@ -159,30 +159,30 @@ With a fully Caffeinated compiler, Fortran programmers can produce parallel exec
       <div class="row">
         <div class="col-xs-6 col-sm-3">
               <h3>Source Files</h3>
-              <ul>                    <li><a href='./sourcefile/assert_m.f90.html'>assert_m.F90</a></li>
+              <ul>                    <li><a href='./sourcefile/alias_m.f90.html'>alias_m.f90</a></li>
+                    <li><a href='./sourcefile/alias_s.f90.html'>alias_s.f90</a></li>
+                    <li><a href='./sourcefile/allocation_m.f90.html'>allocation_m.f90</a></li>
+                    <li><a href='./sourcefile/allocation_s.f90.html'>allocation_s.f90</a></li>
+                    <li><a href='./sourcefile/assert_m.f90.html'>assert_m.F90</a></li>
                     <li><a href='./sourcefile/assert_s.f90.html'>assert_s.f90</a></li>
-                    <li><a href='./sourcefile/caffeinate_decaffeinate_m.f90.html'>caffeinate_decaffeinate_m.f90</a></li>
-                    <li><a href='./sourcefile/caffeinate_decaffeinate_s.f90.html'>caffeinate_decaffeinate_s.F90</a></li>
+                    <li><a href='./sourcefile/atomic_m.f90.html'>atomic_m.f90</a></li>
+                    <li><a href='./sourcefile/atomic_s.f90.html'>atomic_s.f90</a></li>
                     <li><a href='./sourcefile/caffeine_h_m.f90.html'>caffeine_h_m.f90</a></li>
-                    <li><a href='./sourcefile/caffeine_m.f90.html'>caffeine_m.f90</a></li>
                     <li><a href='./sourcefile/characterizable_m.f90.html'>characterizable_m.f90</a></li>
-                    <li><a href='./sourcefile/co_broadcast_s.f90.html'>co_broadcast_s.f90</a></li>
-                    <li><a href='./sourcefile/co_max_s.f90.html'>co_max_s.f90</a></li>
-                    <li><a href='./sourcefile/co_min_s.f90.html'>co_min_s.f90</a></li>
 </ul>
           </div>
 		  <div class="col-xs-6 col-sm-3">
               <h3>Modules</h3>
-              <ul>                    <li><a href='./module/caffeinate_decaffeinate_m.html'>caffeinate_decaffeinate_m</a></li>
+              <ul>                    <li><a href='./module/alias_m.html'>alias_m</a></li>
+                    <li><a href='./module/allocation_m.html'>allocation_m</a></li>
+                    <li><a href='./module/atomic_m.html'>atomic_m</a></li>
                     <li><a href='./module/caffeine_assert_m.html'>caffeine_assert_m</a></li>
                     <li><a href='./module/caffeine_characterizable_m.html'>caffeine_characterizable_m</a></li>
                     <li><a href='./module/caffeine_h_m.html'>caffeine_h_m</a></li>
                     <li><a href='./module/caffeine_intrinsic_array_m.html'>caffeine_intrinsic_array_m</a></li>
-                    <li><a href='./module/caffeine_m.html'>caffeine_m</a></li>
+                    <li><a href='./module/coarray_access_m.html'>coarray_access_m</a></li>
+                    <li><a href='./module/coarray_queries_m.html'>coarray_queries_m</a></li>
                     <li><a href='./module/collective_subroutines_m.html'>collective_subroutines_m</a></li>
-                    <li><a href='./module/image_enumeration_m.html'>image_enumeration_m</a></li>
-                    <li><a href='./module/normal_termination_m.html'>normal_termination_m</a></li>
-                    <li><a href='./module/program_termination_m.html'>program_termination_m</a></li>
 </ul>
           </div>
 		  <div class="col-xs-6 col-sm-3">
@@ -190,20 +190,23 @@ With a fully Caffeinated compiler, Fortran programmers can produce parallel exec
               <ul>                    <li><a href='./interface/as_character.html'>as_character</a></li>
                     <li><a href='./interface/assert.html'>assert</a></li>
                     <li><a href='./proc/c_f_string.html'>c_f_string</a></li>
-                    <li><a href='./interface/caf_c_caffeinate.html'>caf_c_caffeinate</a></li>
-                    <li><a href='./interface/caf_c_co_broadcast.html'>caf_c_co_broadcast</a></li>
-                    <li><a href='./interface/caf_c_co_max.html'>caf_c_co_max</a></li>
-                    <li><a href='./interface/caf_c_co_min.html'>caf_c_co_min</a></li>
-                    <li><a href='./interface/caf_c_co_reduce.html'>caf_c_co_reduce</a></li>
-                    <li><a href='./interface/caf_c_co_sum.html'>caf_c_co_sum</a></li>
-                    <li><a href='./interface/caf_c_decaffeinate.html'>caf_c_decaffeinate</a></li>
+                    <li><a href='./interface/caf_allocate.html'>caf_allocate</a></li>
+                    <li><a href='./interface/caf_caffeinate.html'>caf_caffeinate</a></li>
+                    <li><a href='./interface/caf_co_broadcast.html'>caf_co_broadcast</a></li>
+                    <li><a href='./interface/caf_co_max.html'>caf_co_max</a></li>
+                    <li><a href='./interface/caf_co_min.html'>caf_co_min</a></li>
+                    <li><a href='./interface/caf_co_reduce.html'>caf_co_reduce</a></li>
+                    <li><a href='./interface/caf_co_sum.html'>caf_co_sum</a></li>
 </ul>
           </div>
 		  <div class="col-xs-6 col-sm-3">
               <h3>Derived Types</h3>
               <ul>                    <li><a href='./type/characterizable_t.html'>characterizable_t</a></li>
                     <li><a href='./type/intrinsic_array_t.html'>intrinsic_array_t</a></li>
-                    <li><a href='./type/team_type.html'>team_type</a></li>
+                    <li><a href='./type/prif_coarray_handle.html'>prif_coarray_handle</a></li>
+                    <li><a href='./type/prif_lock_type.html'>prif_lock_type</a></li>
+                    <li><a href='./type/prif_notify_type.html'>prif_notify_type</a></li>
+                    <li><a href='./type/prif_team_type.html'>prif_team_type</a></li>
 </ul>
           </div>
       </div>
@@ -212,14 +215,14 @@ With a fully Caffeinated compiler, Fortran programmers can produce parallel exec
     <footer>
       <div class="container">
       <div class="row">
-        <div class="col-xs-6 col-md-6"><p>Caffeine was developed by Lawrence Berkeley National Laboratory<br>&copy; 2022 
+        <div class="col-xs-6 col-md-6"><p>Caffeine was developed by Lawrence Berkeley National Laboratory<br>&copy; 2023 
 </p>
         </div>
         <div class="col-xs-6 col-md-6">
           <p class="text-right">
             Documentation generated by 
             <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2022-11-18 22:06            </p>
+ on 2023-12-29 19:59            </p>
         </div>
       </div>
       <br>

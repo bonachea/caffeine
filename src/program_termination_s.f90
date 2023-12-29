@@ -2,39 +2,71 @@
 ! Terms of use are as specified in LICENSE.txt
 submodule(program_termination_m) program_termination_s
   use iso_fortran_env, only : output_unit, error_unit
-  use iso_c_binding, only : c_char, c_int
-  use caffeine_h_m, only : caf_c_decaffeinate
+  use iso_c_binding, only : c_char
+  use caffeine_h_m, only : caf_decaffeinate
   implicit none
 
 contains
 
-  module procedure caf_stop_integer
+  module procedure prif_stop
 
-    sync all
+    !TODO: deal with argument `quiet`
+    if (present(stop_code_char)) then
+       call prif_stop_character(stop_code_char)
+    else if (present(stop_code_int)) then
+       call prif_stop_integer(stop_code_int)
+    else
+       call prif_stop_integer()
+    end if
 
-    !write(output_unit, *) "caf_stop: stop code '", stop_code, "'"
-    write(output_unit, *) stop_code
-    flush output_unit
+  contains
 
-    if (.not. present(stop_code)) call caf_c_decaffeinate(exit_code=0_c_int) ! does not return
-    call caf_c_decaffeinate(stop_code)
+    subroutine prif_stop_integer(stop_code)
+      !! synchronize, stop the executing image, and provide the stop_code, or 0 if not present, as the process exit status
+      integer, intent(in), optional :: stop_code
 
-  end procedure
+      sync all
 
-  module procedure caf_stop_character
+      !write(output_unit, *) "caf_stop: stop code '", stop_code, "'"
+      write(output_unit, *) stop_code
+      flush output_unit
 
-    sync all
+      if (.not. present(stop_code)) call caf_decaffeinate(exit_code=0_c_int) ! does not return
+      call caf_decaffeinate(stop_code)
 
-    write(output_unit, *) "caf_stop: stop code '" // stop_code // "'"
-    flush output_unit
+    end subroutine prif_stop_integer
 
-    call caf_c_decaffeinate(exit_code=0_c_int) ! does not return
+    subroutine prif_stop_character(stop_code)
+      !! synchronize, stop the executing image, and provide the stop_code as the process exit status
+      character(len=*), intent(in) :: stop_code
 
-  end procedure
+      sync all
 
+      write(output_unit, *) "caf_stop: stop code '" // stop_code // "'"
+      flush output_unit
 
+      call caf_decaffeinate(exit_code=0_c_int) ! does not return
 
-  module procedure caf_error_stop_character
+    end subroutine prif_stop_character
+
+  end procedure prif_stop
+
+  module procedure prif_error_stop
+
+    !TODO: deal with argument `quiet`
+    if (present(stop_code_char)) then
+       call prif_error_stop_character(stop_code_char)
+    else if (present(stop_code_int)) then
+       call prif_error_stop_integer(stop_code_int)
+    else
+       call prif_error_stop_integer()
+    end if
+  end procedure prif_error_stop
+
+  pure subroutine prif_error_stop_character(stop_code)
+    !! stop all images and provide the stop_code as the process exit status
+    character(len=*), intent(in) :: stop_code
+
     interface
       pure subroutine caf_error_stop_character_c(stop_code, length) bind(C, name = "caf_error_stop_character_c")
         use, intrinsic :: iso_c_binding, only: c_char, c_int
@@ -43,8 +75,9 @@ contains
         character(len=1,kind=c_char), intent(in) :: stop_code(length)
       end subroutine
     end interface
+
     call caf_error_stop_character_c(f_c_string(stop_code), len(stop_code))
-  end procedure
+  end subroutine
 
   subroutine inner_caf_error_stop_character(stop_code, length) bind(C, name = "inner_caf_error_stop_character")
     integer(c_int), intent(in) :: length
@@ -55,11 +88,14 @@ contains
     write(error_unit, *) c_f_string(stop_code, length)
     flush error_unit
 
-    call caf_error_stop_integer(error_occured)
+    call prif_error_stop_integer(error_occured)
 
   end subroutine
 
-  module procedure caf_error_stop_integer
+  pure subroutine prif_error_stop_integer(stop_code)
+    !! stop all images and provide the stop_code, or 0 if not present, as the process exit status
+    integer, intent(in), optional :: stop_code
+
     interface
       pure subroutine caf_error_stop_integer_c(stop_code) bind(C, name = "caf_error_stop_integer_c")
         use, intrinsic :: iso_c_binding, only: c_int
@@ -67,8 +103,9 @@ contains
         integer(c_int), intent(in) :: stop_code
       end subroutine
     end interface
+
     call caf_error_stop_integer_c(stop_code)
-  end procedure
+  end subroutine
 
   subroutine inner_caf_error_stop_integer(stop_code) bind(C, name = "inner_caf_error_stop_integer")
     integer, intent(in), optional :: stop_code
@@ -77,7 +114,7 @@ contains
 
     if (.not. present(stop_code)) then
 
-      call caf_c_decaffeinate(exit_code=1)
+      call caf_decaffeinate(exit_code=1)
 
     else if (stop_code==0) then
 
@@ -88,7 +125,7 @@ contains
       exit_code = stop_code
     end if
 
-    call caf_c_decaffeinate(exit_code) ! does not return
+    call caf_decaffeinate(exit_code) ! does not return
 
   end subroutine
 
@@ -113,5 +150,8 @@ contains
       f_string(i:i) = c_string(i)
     end do
   end function
+
+  module procedure prif_fail_image
+  end procedure
 
 end submodule program_termination_s
