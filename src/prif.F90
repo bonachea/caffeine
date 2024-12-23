@@ -5,12 +5,13 @@
 
 module prif
 
-  use iso_c_binding, only: c_int, c_bool, c_intptr_t, c_intmax_t, c_ptr, c_funptr, c_size_t, c_ptrdiff_t, c_null_ptr
+  use iso_c_binding, only: c_int, c_bool, c_intptr_t, c_ptr, c_funptr, c_size_t, c_ptrdiff_t, c_null_ptr, c_int64_t
 
   implicit none
 
   private
   public :: prif_init
+  public :: prif_register_stop_callback, prif_stop_callback_interface
   public :: prif_stop, prif_error_stop, prif_fail_image
   public :: prif_allocate_coarray, prif_allocate, prif_deallocate_coarray, prif_deallocate
   public :: prif_put, prif_put_indirect, prif_get, prif_get_indirect, prif_put_with_notify, prif_put_with_notify_indirect
@@ -24,7 +25,7 @@ module prif
   public :: prif_this_image_no_coarray, prif_this_image_with_coarray, prif_this_image_with_dim
   public :: prif_num_images, prif_num_images_with_team, prif_num_images_with_team_number
   public :: prif_failed_images, prif_stopped_images, prif_image_status
-  public :: prif_set_context_data, prif_get_context_data, prif_size_bytes
+  public :: prif_local_data_pointer, prif_set_context_data, prif_get_context_data, prif_size_bytes
   public :: prif_co_sum, prif_co_max, prif_co_min, prif_co_reduce, prif_co_broadcast
   public :: prif_form_team, prif_change_team, prif_end_team, prif_get_team, prif_team_number
   public :: prif_sync_all, prif_sync_images, prif_sync_team, prif_sync_memory
@@ -91,7 +92,7 @@ module prif
 
   type, public :: prif_coarray_handle
     private
-    type(handle_data), pointer :: info
+    type(prif_coarray_descriptor), pointer :: info
   end type
 
   type, public :: prif_team_type
@@ -99,11 +100,27 @@ module prif
     type(team_data), pointer :: info => null()
   end type
 
+  abstract interface
+    subroutine prif_stop_callback_interface( &
+          is_error_stop, quiet, stop_code_int, stop_code_char)
+      import :: c_bool, c_int
+      implicit none
+      logical(c_bool), intent(in) :: is_error_stop, quiet
+      integer(c_int), intent(in), optional :: stop_code_int
+      character(len=*), intent(in), optional :: stop_code_char
+    end subroutine
+  end interface
+
   interface
 
     module subroutine prif_init(stat)
       implicit none
       integer(c_int), intent(out) :: stat
+    end subroutine
+
+    module subroutine prif_register_stop_callback(callback)
+      implicit none
+      procedure(prif_stop_callback_interface), pointer, intent(in) :: callback
     end subroutine
 
     module subroutine prif_stop(quiet, stop_code_int, stop_code_char)
@@ -125,12 +142,11 @@ module prif
     end subroutine
 
     module subroutine prif_allocate_coarray( &
-        lcobounds, ucobounds, lbounds, ubounds, element_size, final_func, coarray_handle, &
+        lcobounds, ucobounds, size_in_bytes, final_func, coarray_handle, &
         allocated_memory, stat, errmsg, errmsg_alloc)
       implicit none
-      integer(c_intmax_t), dimension(:), intent(in) :: lcobounds, ucobounds
-      integer(c_intmax_t), dimension(:), intent(in) :: lbounds, ubounds
-      integer(c_size_t), intent(in) :: element_size
+      integer(c_int64_t), dimension(:), intent(in) :: lcobounds, ucobounds
+      integer(c_size_t), intent(in) :: size_in_bytes
       type(c_funptr), intent(in) :: final_func
       type(prif_coarray_handle), intent(out) :: coarray_handle
       type(c_ptr), intent(out) :: allocated_memory
@@ -412,8 +428,8 @@ module prif
     module subroutine prif_alias_create(source_handle, alias_lcobounds, alias_ucobounds, alias_handle)
       implicit none
       type(prif_coarray_handle), intent(in) :: source_handle
-      integer(c_intmax_t), intent(in) :: alias_lcobounds(:)
-      integer(c_intmax_t), intent(in) :: alias_ucobounds(:)
+      integer(c_int64_t), intent(in) :: alias_lcobounds(:)
+      integer(c_int64_t), intent(in) :: alias_ucobounds(:)
       type(prif_coarray_handle), intent(out) :: alias_handle
     end subroutine
 
@@ -426,26 +442,26 @@ module prif
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
       integer(c_int), intent(in) :: dim
-      integer(c_intmax_t), intent(out) :: lcobound
+      integer(c_int64_t), intent(out) :: lcobound
     end subroutine
 
     module subroutine prif_lcobound_no_dim(coarray_handle, lcobounds)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
-      integer(c_intmax_t), intent(out) :: lcobounds(:)
+      integer(c_int64_t), intent(out) :: lcobounds(:)
     end subroutine
 
     module subroutine prif_ucobound_with_dim(coarray_handle, dim, ucobound)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
       integer(c_int), intent(in) :: dim
-      integer(c_intmax_t), intent(out) :: ucobound
+      integer(c_int64_t), intent(out) :: ucobound
     end subroutine
 
     module subroutine prif_ucobound_no_dim(coarray_handle, ucobounds)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
-      integer(c_intmax_t), intent(out) :: ucobounds(:)
+      integer(c_int64_t), intent(out) :: ucobounds(:)
     end subroutine
 
     module subroutine prif_coshape(coarray_handle, sizes)
@@ -457,14 +473,14 @@ module prif
     module subroutine prif_image_index(coarray_handle, sub, image_index)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
-      integer(c_intmax_t), intent(in) :: sub(:)
+      integer(c_int64_t), intent(in) :: sub(:)
       integer(c_int), intent(out) :: image_index
     end subroutine
 
     module subroutine prif_image_index_with_team(coarray_handle, sub, team, image_index)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
-      integer(c_intmax_t), intent(in) :: sub(:)
+      integer(c_int64_t), intent(in) :: sub(:)
       type(prif_team_type), intent(in) :: team
       integer(c_int), intent(out) :: image_index
     end subroutine
@@ -472,7 +488,7 @@ module prif
     module subroutine prif_image_index_with_team_number(coarray_handle, sub, team_number, image_index)
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
-      integer(c_intmax_t), intent(in) :: sub(:)
+      integer(c_int64_t), intent(in) :: sub(:)
       integer(c_int), intent(in) :: team_number
       integer(c_int), intent(out) :: image_index
     end subroutine
@@ -490,7 +506,7 @@ module prif
 
     module subroutine prif_num_images_with_team_number(team_number, num_images)
       implicit none
-      integer(c_intmax_t), intent(in) :: team_number
+      integer(c_int64_t), intent(in) :: team_number
       integer(c_int), intent(out) :: num_images
     end subroutine
 
@@ -504,7 +520,7 @@ module prif
       implicit none
       type(prif_coarray_handle), intent(in) :: coarray_handle
       type(prif_team_type), intent(in), optional :: team
-      integer(c_intmax_t), intent(out) :: cosubscripts(:)
+      integer(c_int64_t), intent(out) :: cosubscripts(:)
     end subroutine
 
     module subroutine prif_this_image_with_dim(coarray_handle, dim, team, cosubscript)
@@ -512,7 +528,7 @@ module prif
       type(prif_coarray_handle), intent(in) :: coarray_handle
       integer(c_int), intent(in) :: dim
       type(prif_team_type), intent(in), optional :: team
-      integer(c_intmax_t), intent(out) :: cosubscript
+      integer(c_int64_t), intent(out) :: cosubscript
     end subroutine
 
     module subroutine prif_failed_images(team, failed_images)
@@ -532,6 +548,11 @@ module prif
       integer(c_int), intent(in) :: image
       type(prif_team_type), intent(in), optional :: team
       integer(c_int), intent(out) :: image_status
+    end subroutine
+
+    module subroutine prif_local_data_pointer(coarray_handle, local_data)
+      type(prif_coarray_handle), intent(in) :: coarray_handle
+      type(c_ptr), intent(out) :: local_data
     end subroutine
 
     module subroutine prif_set_context_data(coarray_handle, context_data)
@@ -600,7 +621,7 @@ module prif
 
     module subroutine prif_form_team(team_number, team, new_index, stat, errmsg, errmsg_alloc)
       implicit none
-      integer(c_intmax_t), intent(in) :: team_number
+      integer(c_int64_t), intent(in) :: team_number
       type(prif_team_type), intent(out) :: team
       integer(c_int), intent(in), optional :: new_index
       integer(c_int), intent(out), optional :: stat
@@ -632,7 +653,7 @@ module prif
     module subroutine prif_team_number(team, team_number)
       implicit none
       type(prif_team_type), intent(in), optional :: team
-      integer(c_intmax_t), intent(out) :: team_number
+      integer(c_int64_t), intent(out) :: team_number
     end subroutine
 
     module subroutine prif_sync_all(stat, errmsg, errmsg_alloc)
@@ -740,7 +761,7 @@ module prif
     module subroutine prif_event_wait(event_var_ptr, until_count, stat, errmsg, errmsg_alloc)
       implicit none
       type(c_ptr), intent(in) :: event_var_ptr
-      integer(c_intmax_t), intent(in), optional :: until_count
+      integer(c_int64_t), intent(in), optional :: until_count
       integer(c_int), intent(out), optional :: stat
       character(len=*), intent(inout), optional :: errmsg
       character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
@@ -749,14 +770,14 @@ module prif
     module subroutine prif_event_query(event_var_ptr, count, stat)
       implicit none
       type(c_ptr), intent(in) :: event_var_ptr
-      integer(c_intmax_t), intent(out) :: count
+      integer(c_int64_t), intent(out) :: count
       integer(c_int), intent(out), optional :: stat
     end subroutine
 
     module subroutine prif_notify_wait(notify_var_ptr, until_count, stat, errmsg, errmsg_alloc)
       implicit none
       type(c_ptr), intent(in) :: notify_var_ptr
-      integer(c_intmax_t), intent(in), optional :: until_count
+      integer(c_int64_t), intent(in), optional :: until_count
       integer(c_int), intent(out), optional :: stat
       character(len=*), intent(inout), optional :: errmsg
       character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
@@ -1020,15 +1041,14 @@ module prif
 
 ! Type definitions only relevant to Caffeine internals
 
-  type, private, bind(C) :: handle_data
+  type, private, bind(C) :: prif_coarray_descriptor
     private
     type(c_ptr) :: coarray_data
     integer(c_int) :: corank
     integer(c_size_t) :: coarray_size
-    integer(c_size_t) :: element_size
     type(c_funptr) :: final_func
     type(c_ptr) :: previous_handle = c_null_ptr, next_handle = c_null_ptr
-    integer(c_intmax_t) :: lcobounds(15), ucobounds(15)
+    integer(c_int64_t) :: lcobounds(15), ucobounds(15)
   end type
 
   type, private :: team_data
@@ -1037,7 +1057,7 @@ module prif
     integer(c_intptr_t) :: heap_start
     integer(c_size_t) :: heap_size
     type(team_data), pointer :: parent_team => null()
-    type(handle_data), pointer :: coarrays => null()
+    type(prif_coarray_descriptor), pointer :: coarrays => null()
     type(child_team_info), pointer :: child_heap_info => null()
   end type
 
