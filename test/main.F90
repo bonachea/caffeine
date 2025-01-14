@@ -71,6 +71,10 @@ contains
 
         individual_tests(1) = a00_caffeinate_caffeinate()
         individual_tests(2) = caf_allocate_prif_allocate()
+#if __flang__
+        individual_tests(3:7) = caf_co_broadcast_prif_co_broadcast()
+        individual_tests(8:9) = caf_coarray_inquiry_coarray_inquiry()
+#else
         individual_tests(3) = caf_co_broadcast_prif_co_broadcast()
         individual_tests(4) = caf_co_max_prif_co_max()
         individual_tests(5) = caf_co_min_prif_co_min()
@@ -78,10 +82,15 @@ contains
         individual_tests(7) = caf_co_sum_prif_co_sum()
         individual_tests(8) = caf_coarray_inquiry_coarray_inquiry()
         individual_tests(9) = caf_error_stop_prif_this_image()
+#endif
         individual_tests(10) = caf_image_index_prif_image_index()
         individual_tests(11) = caf_num_images_prif_num_images()
+#if __flang__
+        individual_tests(12:13) = caf_rma_prif_rma()
+#else
         individual_tests(12) = caf_rma_prif_rma()
         individual_tests(13) = caf_stop_prif_this_image()
+#endif
         individual_tests(14) = caf_teams_caf_teams()
         individual_tests(15) = caf_this_image_prif_this_image_no_coarray()
         tests = test_that(individual_tests)
