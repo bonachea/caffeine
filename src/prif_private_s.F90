@@ -1,6 +1,11 @@
 ! Copyright (c), The Regents of the University of California
 ! Terms of use are as specified in LICENSE.txt
+
+#include "assert_macros.h"
+
 submodule(prif) prif_private_s
+  use assert_m
+  use iso_c_binding, only: c_associated
   implicit none
 
   type(team_data), target :: initial_team
@@ -8,13 +13,6 @@ submodule(prif) prif_private_s
   type(c_ptr) :: non_symmetric_heap_mspace
 
   interface
-
-    module subroutine assert(assertion, description, diagnostics)
-      implicit none
-      logical, intent(in) :: assertion
-      character(len=*), intent(in) :: description
-      class(*), intent(in), optional :: diagnostics
-    end subroutine
 
     ! ________ Program initiation and finalization ___________
 
@@ -40,21 +38,27 @@ submodule(prif) prif_private_s
       integer(c_int), value :: exit_code
     end subroutine
 
+    pure subroutine caf_fatal_error(str) bind(C)
+      !! void caf_fatal_error( const CFI_cdesc_t* Fstr )
+      use iso_c_binding, only : c_char
+      implicit none
+      character(kind=c_char,len=:), pointer, intent(in) :: str
+    end subroutine
     ! _________________ Image enumeration ____________________
 
-    function caf_this_image(team) bind(C)
-      !! int caf_this_image();
+    function caf_this_image(gex_team) bind(C)
+      !! int caf_this_image(gex_TM_t gex_team);
       import c_ptr, c_int
       implicit none
-      type(c_ptr), value :: team
+      type(c_ptr), value :: gex_team
       integer(c_int) caf_this_image
     end function
 
-    pure function caf_num_images(team) bind(C)
-      !! int caf_num_images();
+    pure function caf_num_images(gex_team) bind(C)
+      !! int caf_num_images(gex_TM_t gex_team);
       import c_ptr, c_int
       implicit none
-      type(c_ptr), value :: team
+      type(c_ptr), value :: gex_team
       integer(c_int) caf_num_images
     end function
 
@@ -101,7 +105,7 @@ submodule(prif) prif_private_s
     end function
 
 
-    ! _______________________ RMA ____________________________
+    ! _______________________ Contiguous RMA ____________________________
     subroutine caf_put(image, dest, src, size) bind(c)
       !! void caf_put(int image, intptr_t dest, void* src, size_t size)
       import c_ptr, c_int, c_intptr_t, c_size_t
@@ -121,12 +125,61 @@ submodule(prif) prif_private_s
       integer(c_intptr_t), intent(in), value :: src
       integer(c_size_t), intent(in), value :: size
     end subroutine
-    ! __________________ Synchronization _____________________
+
+    ! _______________________ Strided RMA ____________________________
+    subroutine caf_put_strided(dims, image_num, remote_ptr, remote_stride, &
+                               current_image_buffer, current_image_stride, &
+                               element_size, extent) bind(c)
+      !! void caf_put_strided(int dims, int image_num, 
+      !!                      intptr_t remote_ptr, void* remote_stride, 
+      !!                      void *current_image_buffer, void * current_image_stride, 
+      !!                      size_t element_size, void *extent)
+      import c_ptr, c_int, c_intptr_t, c_size_t
+      implicit none
+      integer(c_int), intent(in), value :: dims
+      integer(c_int), intent(in), value :: image_num
+      integer(c_intptr_t), intent(in), value :: remote_ptr
+      type(c_ptr), intent(in), value :: remote_stride
+      type(c_ptr), intent(in), value :: current_image_buffer
+      type(c_ptr), intent(in), value :: current_image_stride
+      integer(c_size_t), intent(in), value :: element_size
+      type(c_ptr), intent(in), value :: extent
+    end subroutine
+
+    subroutine caf_get_strided(dims, image_num, remote_ptr, remote_stride, &
+                               current_image_buffer, current_image_stride, &
+                               element_size, extent) bind(c)
+      !! void caf_get_strided(int dims, int image_num, 
+      !!                      intptr_t remote_ptr, void* remote_stride, 
+      !!                      void *current_image_buffer, void * current_image_stride, 
+      !!                      size_t element_size, void *extent)
+      import c_ptr, c_int, c_intptr_t, c_size_t
+      implicit none
+      integer(c_int), intent(in), value :: dims
+      integer(c_int), intent(in), value :: image_num
+      integer(c_intptr_t), intent(in), value :: remote_ptr
+      type(c_ptr), intent(in), value :: remote_stride
+      type(c_ptr), intent(in), value :: current_image_buffer
+      type(c_ptr), intent(in), value :: current_image_stride
+      integer(c_size_t), intent(in), value :: element_size
+      type(c_ptr), intent(in), value :: extent
+    end subroutine
+
+    ! __________________ SYNC Statements _____________________
+
+    subroutine caf_sync_memory() bind(C)
+      !! void caf_sync_memory();
+    end subroutine
 
     subroutine caf_sync_all() bind(C)
       !! void caf_sync_all();
-      import c_int
-      implicit none
+    end subroutine
+
+    subroutine caf_sync_team(team) bind(C)
+      !! void caf_sync_team(gex_TM_t team);
+       import c_ptr
+       implicit none
+       type(c_ptr), value :: team
     end subroutine
 
     ! ______________ Collective Subroutines __________________
@@ -244,13 +297,8 @@ contains
     integer(c_int), intent(in) :: image_num
     integer(c_intptr_t), intent(out) :: ptr
 
-    integer(c_int) :: num_img
-
-    ! TODO TEAMS: either move the assertion below into `caf_convert_base_addr()`
-    ! (avoiding the need to call prif_num_images here to fetch initial team size)
-    ! or cache the initial team size in a private module variable so we can just access it (issue #62)
-    call prif_num_images(num_images=num_img)
-    call assert(image_num > 0 .and. image_num <= num_img, "base_pointer: image_num not within valid range")
+    call_assert(coarray_handle_check(coarray_handle))
+    call_assert_describe(image_num > 0 .and. image_num <= initial_team%num_images, "base_pointer: image_num not within valid range")
     ptr = caf_convert_base_addr(coarray_handle%info%coarray_data, image_num)
   end subroutine
 
@@ -269,8 +317,31 @@ contains
     end if
   end function
 
+  ! verify state invariants for a coarray_handle
+  ! Note this function validates invariants with deliberately UNconditional assertions
+  ! Suggested caller usage for conditional validation is: 
+  !   call_assert(coarray_handle_check(coarray_handle))
+  elemental impure function coarray_handle_check(coarray_handle) result(result_)
+    implicit none
+    type(prif_coarray_handle), intent(in) :: coarray_handle
+    logical :: result_
+    integer(c_int) :: i
+
+    call assert_always(associated(coarray_handle%info), "unassociated info pointer in prif_coarray_handle")
+    associate(info => coarray_handle%info)
+      call assert_always(info%corank >= 1, "invalid corank in prif_coarray_handle")
+      call assert_always(info%corank <= size(info%ucobounds), "invalid corank in prif_coarray_handle")
+      call assert_always(all([(info%lcobounds(i) <= info%ucobounds(i), i = 1, info%corank)]), &
+                         "invalid cobounds in prif_coarray_handle")
+      call assert_always(info%coarray_size > 0, "invalid data size in prif_coarray_handle")
+      call assert_always(c_associated(info%coarray_data), "invalid data pointer in prif_coarray_handle")
+    end associate
+
+    result_ = .true.
+  end function
+
   subroutine caf_establish_child_heap
-    if (caf_this_image(current_team%info%gex_team) == 1) then
+    if (current_team%info%this_image == 1) then
       call caf_allocate_remaining( &
           current_team%info%heap_mspace, &
           current_team%info%child_heap_info%allocated_memory, &
