@@ -325,9 +325,9 @@
 <polygon fill="#7fff00" stroke="#7fff00" points="539.08,-197.78 547.99,-192.04 537.45,-190.97 539.08,-197.78"/>
 </g>
 <!-- proc~prif_sync_all -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_node13" class="node">
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_node12" class="node">
 <title>proc~prif_sync_all</title>
-<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node13"><a xlink:href=".././proc/prif_sync_all.html" xlink:title="prif_sync_all">
+<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node12"><a xlink:href=".././proc/prif_sync_all.html" xlink:title="prif_sync_all">
 <polygon fill="#d9534f" stroke="#d9534f" points="638,-150 560,-150 560,-126 638,-126 638,-150"/>
 <text text-anchor="middle" x="599" y="-135.6" font-family="Helvetica,sans-Serif" font-size="10.50" fill="white">prif_sync_all</text>
 </a>
@@ -340,9 +340,9 @@
 <polygon fill="#00ffff" stroke="#00ffff" points="549.79,-141.5 559.79,-138 549.79,-134.5 549.79,-141.5"/>
 </g>
 <!-- proc~prif_error_stop -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_node12" class="node">
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_node13" class="node">
 <title>proc~prif_error_stop</title>
-<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node12"><a xlink:href=".././proc/prif_error_stop.html" xlink:title="prif_error_stop">
+<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node13"><a xlink:href=".././proc/prif_error_stop.html" xlink:title="prif_error_stop">
 <polygon fill="#d9534f" stroke="#d9534f" points="644,-108 554,-108 554,-84 644,-84 644,-108"/>
 <text text-anchor="middle" x="599" y="-93.6" font-family="Helvetica,sans-Serif" font-size="10.50" fill="white">prif_error_stop</text>
 </a>
@@ -366,20 +366,35 @@
 <path fill="none" stroke="#7f00ff" d="M489.47,-54C508.11,-54 528.12,-54 545.83,-54"/>
 <polygon fill="#7f00ff" stroke="#7f00ff" points="545.96,-57.5 555.96,-54 545.96,-50.5 545.96,-57.5"/>
 </g>
-<!-- proc~run_callbacks -->
+<!-- interface~caf_sync_all -->
 <g id="interface~~prif_deallocate_coarray~~CallsGraph_node17" class="node">
+<title>interface~caf_sync_all</title>
+<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node17"><a xlink:href=".././interface/caf_sync_all.html" xlink:title="caf_sync_all">
+<polygon fill="#a7506f" stroke="#a7506f" points="814.5,-150 738.5,-150 738.5,-126 814.5,-126 814.5,-150"/>
+<text text-anchor="middle" x="776.5" y="-135.6" font-family="Helvetica,sans-Serif" font-size="10.50" fill="white">caf_sync_all</text>
+</a>
+</g>
+</g>
+<!-- proc~prif_sync_all&#45;&gt;interface~caf_sync_all -->
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge16" class="edge">
+<title>proc~prif_sync_all&#45;&gt;interface~caf_sync_all</title>
+<path fill="none" stroke="#ffff00" d="M638.08,-138C664.57,-138 700.06,-138 728.33,-138"/>
+<polygon fill="#ffff00" stroke="#ffff00" points="728.4,-141.5 738.4,-138 728.4,-134.5 728.4,-141.5"/>
+</g>
+<!-- proc~run_callbacks -->
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_node18" class="node">
 <title>proc~run_callbacks</title>
-<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node17"><a xlink:href=".././proc/run_callbacks.html" xlink:title="run_callbacks">
+<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node18"><a xlink:href=".././proc/run_callbacks.html" xlink:title="run_callbacks">
 <polygon fill="#d9534f" stroke="#d9534f" points="819,-108 734,-108 734,-84 819,-84 819,-108"/>
 <text text-anchor="middle" x="776.5" y="-93.6" font-family="Helvetica,sans-Serif" font-size="10.50" fill="white">run_callbacks</text>
 </a>
 </g>
 </g>
 <!-- proc~prif_error_stop&#45;&gt;proc~run_callbacks -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge16" class="edge">
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge17" class="edge">
 <title>proc~prif_error_stop&#45;&gt;proc~run_callbacks</title>
-<path fill="none" stroke="#ffff00" d="M644.29,-96C668.47,-96 698.55,-96 723.81,-96"/>
-<polygon fill="#ffff00" stroke="#ffff00" points="723.94,-99.5 733.94,-96 723.94,-92.5 723.94,-99.5"/>
+<path fill="none" stroke="#00ff00" d="M644.29,-96C668.47,-96 698.55,-96 723.81,-96"/>
+<polygon fill="#00ff00" stroke="#00ff00" points="723.94,-99.5 733.94,-96 723.94,-92.5 723.94,-99.5"/>
 </g>
 <!-- proc~prif_error_stop_integer -->
 <g id="interface~~prif_deallocate_coarray~~CallsGraph_node19" class="node">
@@ -391,10 +406,10 @@
 </g>
 </g>
 <!-- proc~prif_error_stop&#45;&gt;proc~prif_error_stop_integer -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge18" class="edge">
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge19" class="edge">
 <title>proc~prif_error_stop&#45;&gt;proc~prif_error_stop_integer</title>
-<path fill="none" stroke="#ffff00" d="M644.29,-85.4C665.88,-80.23 692.16,-73.94 715.52,-68.35"/>
-<polygon fill="#ffff00" stroke="#ffff00" points="716.42,-71.74 725.33,-66.01 714.79,-64.93 716.42,-71.74"/>
+<path fill="none" stroke="#00ff00" d="M644.29,-85.4C665.88,-80.23 692.16,-73.94 715.52,-68.35"/>
+<polygon fill="#00ff00" stroke="#00ff00" points="716.42,-71.74 725.33,-66.01 714.79,-64.93 716.42,-71.74"/>
 </g>
 <!-- proc~prif_error_stop_character -->
 <g id="interface~~prif_deallocate_coarray~~CallsGraph_node21" class="node">
@@ -406,25 +421,10 @@
 </g>
 </g>
 <!-- proc~prif_error_stop&#45;&gt;proc~prif_error_stop_character -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge17" class="edge">
+<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge18" class="edge">
 <title>proc~prif_error_stop&#45;&gt;proc~prif_error_stop_character</title>
-<path fill="none" stroke="#ffff00" d="M644.13,-86.04C652.11,-83.18 660.08,-79.56 667,-75 687.52,-61.47 682.33,-46.31 703,-33 705.75,-31.23 708.66,-29.6 711.67,-28.11"/>
-<polygon fill="#ffff00" stroke="#ffff00" points="713.19,-31.26 720.92,-24.02 710.36,-24.86 713.19,-31.26"/>
-</g>
-<!-- interface~caf_sync_all -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_node18" class="node">
-<title>interface~caf_sync_all</title>
-<g id="a_interface~~prif_deallocate_coarray~~CallsGraph_node18"><a xlink:href=".././interface/caf_sync_all.html" xlink:title="caf_sync_all">
-<polygon fill="#a7506f" stroke="#a7506f" points="814.5,-150 738.5,-150 738.5,-126 814.5,-126 814.5,-150"/>
-<text text-anchor="middle" x="776.5" y="-135.6" font-family="Helvetica,sans-Serif" font-size="10.50" fill="white">caf_sync_all</text>
-</a>
-</g>
-</g>
-<!-- proc~prif_sync_all&#45;&gt;interface~caf_sync_all -->
-<g id="interface~~prif_deallocate_coarray~~CallsGraph_edge19" class="edge">
-<title>proc~prif_sync_all&#45;&gt;interface~caf_sync_all</title>
-<path fill="none" stroke="#00ff00" d="M638.08,-138C664.57,-138 700.06,-138 728.33,-138"/>
-<polygon fill="#00ff00" stroke="#00ff00" points="728.4,-141.5 738.4,-138 728.4,-134.5 728.4,-141.5"/>
+<path fill="none" stroke="#00ff00" d="M644.13,-86.04C652.11,-83.18 660.08,-79.56 667,-75 687.52,-61.47 682.33,-46.31 703,-33 705.75,-31.23 708.66,-29.6 711.67,-28.11"/>
+<polygon fill="#00ff00" stroke="#00ff00" points="713.19,-31.26 720.92,-24.02 710.36,-24.86 713.19,-31.26"/>
 </g>
 <!-- proc~prif_co_broadcast -->
 <g id="interface~~prif_deallocate_coarray~~CallsGraph_node20" class="node">
@@ -709,7 +709,7 @@
           <p class="text-right">
             Documentation generated by 
             <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2025-03-20 00:29            </p>
+ on 2025-03-20 00:31            </p>
         </div>
       </div>
       <br>
