@@ -1,5 +1,6 @@
 module caf_co_max_test
     use iso_c_binding, only: c_int8_t, c_int16_t, c_int32_t, c_int64_t, c_float, c_double
+    use iso_fortran_env, only: int64
     use prif, only : prif_co_max, prif_co_max_character, prif_this_image_no_coarray, prif_num_images
     use veggies, only: result_t, test_item_t, assert_equals, describe, it, succeed
 
@@ -106,7 +107,7 @@ contains
         call prif_co_max(my_val)
 
         expected = maxval(reshape([(values(:, mod(i-1,size(values,2))+1), i = 1, ni)], [size(values,1),ni]), dim=2)
-        result_ = assert_equals(int(expected), int(my_val))
+        result_ = assert_equals(int(expected, int64), int(my_val, int64))
     end function
 
     function check_32_bit_real() result(result_)

@@ -1,5 +1,6 @@
 module caf_image_index_test
     use iso_c_binding, only: c_int, c_ptr, c_size_t, c_null_funptr, c_int64_t
+    use iso_fortran_env, only: int64
     use prif, only: prif_coarray_handle, prif_allocate_coarray, prif_deallocate_coarray, &
                     prif_image_index, prif_num_images, &
                     prif_team_type, prif_get_team, &
@@ -52,7 +53,7 @@ contains
         call prif_this_image_with_coarray(coarray_handle, team=team, cosubscripts=cosubscripts)
         do i=1,corank
           call prif_this_image_with_dim(coarray_handle, dim=i, team=team, cosubscript=co)
-          result_ = result_ .and. assert_equals(int(co), int(cosubscripts(i)))
+          result_ = result_ .and. assert_equals(int(co,int64), int(cosubscripts(i),int64))
 
           result_ = result_ .and. assert_that(co >= colbound(i))
           result_ = result_ .and. assert_that(co <= coubound(i))

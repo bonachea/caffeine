@@ -9,6 +9,7 @@ module caf_allocate_test
   use iso_c_binding, only: &
       c_ptr, c_int, c_int64_t, c_size_t, c_funptr, c_null_funptr, &
       c_f_pointer, c_null_ptr, c_loc, c_sizeof, c_associated, c_intptr_t
+  use iso_fortran_env, only: int64
 
   implicit none
   private
@@ -138,7 +139,7 @@ contains
     call prif_size_bytes(h1, s1)
     call prif_size_bytes(h2, s2)
     result_ = result_ .and. &
-      assert_equals(int(s1), int(s2))
+      assert_equals(int(s1,int64), int(s2,int64))
 
     cx = c_loc(dummy(di))
     di = mod(di,size(dummy)) + 1

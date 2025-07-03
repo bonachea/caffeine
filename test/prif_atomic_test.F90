@@ -4,6 +4,7 @@ module caf_atomic_test
     use assert_m
     use iso_c_binding, only: &
             c_ptr, c_int64_t, c_intptr_t, c_size_t, c_null_funptr, c_f_pointer, c_loc, c_sizeof
+    use iso_fortran_env, only: int64
     use veggies, only: result_t, test_item_t, assert_equals, assert_that, describe, it, succeed
     use prif
 
@@ -45,14 +46,7 @@ contains
         character(len=*), intent(in) :: desc
         type(result_t) :: result_
 
-        ! TODO: would like a 64-bit integer compare, but our current
-        ! veggies version does not yet support that.
-        if (expect == int(expect) .and. actual == int(actual)) then
-          ! safe to truncate
-          result_ = assert_equals(int(expect), int(actual), desc)
-        else
-          result_ = assert_that(expect == actual, desc)
-        endif
+        result_ = assert_equals(int(expect,int64), int(actual,int64), desc)
     end function
 
     function assert_equals_logical(expect, actual, desc) result(result_)
@@ -76,7 +70,6 @@ contains
         integer(c_size_t) :: sizeof_atomic_int, sizeof_atomic_logical
         type(prif_coarray_handle) :: coarray_handle_int, coarray_handle_logical
         type(c_ptr) :: c_ptr_int, c_ptr_logical
-
         integer(c_intptr_t) :: base_addr_int, base_addr_logical
 
         result_ = succeed("")
