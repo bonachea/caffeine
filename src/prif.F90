@@ -610,6 +610,7 @@ module prif
       integer(c_size_t), intent(out) :: data_size
     end subroutine
 
+#ifndef __LFORTRAN__
     module subroutine prif_co_sum(a, result_image, stat, errmsg, errmsg_alloc)
       implicit none
       type(*), intent(inout), target :: a(..)
@@ -674,6 +675,7 @@ module prif
       character(len=*), intent(inout), optional :: errmsg
       character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
     end subroutine
+#endif
 
     module subroutine prif_form_team(team_number, team, new_index, stat, errmsg, errmsg_alloc)
       implicit none
