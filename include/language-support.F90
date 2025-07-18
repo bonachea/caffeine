@@ -21,3 +21,7 @@
 #define HAVE_PROCEDURE_ACTUAL_FOR_POINTER_DUMMY 0
 #endif  
 #endif
+
+#ifdef __LFORTRAN__
+#define c_ptrdiff_t c_intptr_t
+#endif
