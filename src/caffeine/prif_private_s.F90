@@ -13,7 +13,9 @@ submodule(prif) prif_private_s
   use iso_c_binding, only: &
         c_associated, &
         c_f_pointer, &
+#ifndef __LFORTRAN__
         c_f_procpointer, &
+#endif
         c_funloc, &
         c_loc, &
         c_null_funptr, &
