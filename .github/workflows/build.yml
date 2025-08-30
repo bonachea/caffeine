@@ -15,7 +15,7 @@ jobs:
       matrix:
         os: [macos-13, macos-14, macos-15, ubuntu-24.04]
         compiler: [ gfortran ]
-        version: [ 13, 14 ]
+        version: [ 13, 14, 15 ]
         network: [ smp ]
         exclude:
           - os: macos-15 # gcc-13 broken on macos-15
