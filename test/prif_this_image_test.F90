@@ -6,7 +6,7 @@ module prif_this_image_no_coarray_test_m
      operator(//) &
     ,operator(.all.) &
     ,operator(.equalsExpected.) &
-    ,bless &
+    ,usher &
     ,test_description_t &
     ,test_diagnosis_t &
     ,test_result_t &
@@ -33,7 +33,7 @@ contains
     type(prif_this_image_no_coarray_test_t) prif_this_image_no_coarray_test
 
     test_results = prif_this_image_no_coarray_test%run([ &
-       test_description_t("returning a unique member of {1,...,num_images()} when called without arguments", bless(check_this_image_set)) &
+       test_description_t("returning a unique member of {1,...,num_images()} when called without arguments", usher(check_this_image_set)) &
     ])
   end function
 

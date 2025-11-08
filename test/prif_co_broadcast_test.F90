@@ -3,7 +3,7 @@
 module prif_co_broadcast_test_m
   use prif, only : prif_co_broadcast, prif_num_images, prif_this_image_no_coarray
   use julienne_m, only : &
-     bless &
+     usher &
     ,test_description_t &
     ,test_diagnosis_t &
     ,test_result_t &
@@ -45,8 +45,8 @@ contains
     type(prif_co_broadcast_test_t) prif_co_broadcast_test
 
     test_results = prif_co_broadcast_test%run([ &
-       test_description_t("broadcasting a default integer scalar with no optional arguments present", bless(broadcast_default_integer_scalar)) &
-      ,test_description_t("broadcasting a derived type scalar with no allocatable components", bless(broadcast_derived_type)) &
+       test_description_t("broadcasting a default integer scalar with no optional arguments present", usher(broadcast_default_integer_scalar)) &
+      ,test_description_t("broadcasting a derived type scalar with no allocatable components", usher(broadcast_derived_type)) &
     ])
   end function
 

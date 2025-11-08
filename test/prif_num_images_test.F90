@@ -5,7 +5,7 @@ module prif_num_images_test_m
   use julienne_m, only:  &
      operator(//) &
     ,operator(.isAtLeast.) &
-    ,bless &
+    ,usher &
     ,test_description_t &
     ,test_diagnosis_t &
     ,test_result_t &
@@ -33,7 +33,7 @@ contains
     type(prif_num_images_test_t) prif_num_images_test
 
     test_results = prif_num_images_test%run([ &
-        test_description_t("returning a valid number of images when invoked with no arguments", bless(check_num_images_valid)) &
+        test_description_t("returning a valid number of images when invoked with no arguments", usher(check_num_images_valid)) &
       ])
   end function
 

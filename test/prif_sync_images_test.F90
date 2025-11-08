@@ -3,7 +3,7 @@
 module prif_sync_images_test_m
     use iso_c_binding, only: c_int
     use prif, only : prif_sync_images, prif_this_image_no_coarray, prif_num_images, prif_sync_all
-    use julienne_m, only: test_description_t, test_diagnosis_t, test_result_t, test_t, operator(.expect.), bless
+    use julienne_m, only: test_description_t, test_diagnosis_t, test_result_t, test_t, operator(.expect.), usher
 
     implicit none
     private
@@ -29,9 +29,9 @@ contains
         type(prif_sync_images_test_t) prif_sync_images_test
 
         test_results = prif_sync_images_test%run([ &
-           test_description_t("synchronizing an image with itself", bless(check_serial)), &
-           test_description_t("synchronizing with a neighbor", bless(check_neighbor)), &
-           test_description_t("synchronizing every image with one image", bless(check_hot)) &
+           test_description_t("synchronizing an image with itself", usher(check_serial)), &
+           test_description_t("synchronizing with a neighbor", usher(check_neighbor)), &
+           test_description_t("synchronizing every image with one image", usher(check_hot)) &
         ])
     end function
 

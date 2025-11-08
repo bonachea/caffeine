@@ -2,7 +2,7 @@
 
 module prif_init_test_m
     use prif, only : prif_init, PRIF_STAT_ALREADY_INIT
-    use julienne_m, only: test_description_t, test_diagnosis_t, test_result_t, test_t, operator(.equalsExpected.), bless
+    use julienne_m, only: test_description_t, test_diagnosis_t, test_result_t, test_t, operator(.equalsExpected.), usher
 
     implicit none
     private
@@ -26,8 +26,8 @@ contains
     type(prif_init_test_t) prif_init_test
 
     test_results = prif_init_test%run([ &
-        test_description_t("completing successfully", bless(check_caffeination)) &
-       ,test_description_t("returning PRIF_STAT_ALREADY_INIT on a subsequent call ", bless(check_subsequent_prif_init_call)) &
+        test_description_t("completing successfully", usher(check_caffeination)) &
+       ,test_description_t("returning PRIF_STAT_ALREADY_INIT on a subsequent call ", usher(check_subsequent_prif_init_call)) &
     ])
   end function
 

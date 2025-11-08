@@ -8,7 +8,7 @@ module prif_co_max_test_m
    ,operator(.approximates.) &
    ,operator(.within.) &
    ,operator(.equalsExpected.) &
-   ,bless &
+   ,usher &
    ,test_description_t &
    ,test_diagnosis_t &
    ,test_result_t &
@@ -37,14 +37,14 @@ contains
       type(prif_co_max_test_t) prif_co_max_test
 
       test_results = prif_co_max_test%run([ &
-         test_description_t("computing element-wise maxima for integer(c_int32_t) scalars", bless(check_32_bit_integer)) &
-        ,test_description_t("computing element-wise maxima for a 1D default integer array", bless(check_default_integer)) &
-        ,test_description_t("computing element-wise maxima for a 1D integer(c_int8_t) array", bless(check_8_bit_integer)) &
-        ,test_description_t("computing element-wise maxima for a 1D integer(c_int16_t) array", bless(check_16_bit_integer)) &
-        ,test_description_t("computing element-wise maxima for a 1D integer(c_int64_t array", bless(check_64_bit_integer)) &
-        ,test_description_t("computing element-wise maxima for a 2D real(c_float) array", bless(check_32_bit_real)) &
-        ,test_description_t("computing element-wise maxima for a 1D real(c_double array", bless(check_64_bit_real)) &
-        ,test_description_t("computing element-wise maxima for character scalars", bless(check_character)) &
+         test_description_t("computing element-wise maxima for integer(c_int32_t) scalars", usher(check_32_bit_integer)) &
+        ,test_description_t("computing element-wise maxima for a 1D default integer array", usher(check_default_integer)) &
+        ,test_description_t("computing element-wise maxima for a 1D integer(c_int8_t) array", usher(check_8_bit_integer)) &
+        ,test_description_t("computing element-wise maxima for a 1D integer(c_int16_t) array", usher(check_16_bit_integer)) &
+        ,test_description_t("computing element-wise maxima for a 1D integer(c_int64_t array", usher(check_64_bit_integer)) &
+        ,test_description_t("computing element-wise maxima for a 2D real(c_float) array", usher(check_32_bit_real)) &
+        ,test_description_t("computing element-wise maxima for a 1D real(c_double array", usher(check_64_bit_real)) &
+        ,test_description_t("computing element-wise maxima for character scalars", usher(check_character)) &
       ])
     end function
 

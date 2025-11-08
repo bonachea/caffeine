@@ -12,7 +12,7 @@ module prif_image_queries_test_m
       ,operator(.isAtMost.) &
       ,operator(.lessThan.) &
       ,operator(.expect.) &
-      ,bless &
+      ,usher &
       ,test_description_t &
       ,test_diagnosis_t &
       ,test_result_t &
@@ -40,9 +40,9 @@ contains
     type(prif_image_queries_test_t) prif_image_queries_test
 
     test_results = prif_image_queries_test%run([ &
-       test_description_t("providing valid prif_image_status()", bless(check_image_status)) &
-      ,test_description_t("providing valid prif_stopped_images()", bless(check_stopped_images)) &
-      ,test_description_t("providing valid prif_failed_images()", bless(check_failed_images)) &
+       test_description_t("providing valid prif_image_status()", usher(check_image_status)) &
+      ,test_description_t("providing valid prif_stopped_images()", usher(check_stopped_images)) &
+      ,test_description_t("providing valid prif_failed_images()", usher(check_failed_images)) &
     ])
   end function
 

@@ -10,7 +10,7 @@ module prif_co_reduce_test_m
     ,operator(.equalsExpected.) &
     ,operator(.expect.) &
     ,operator(.within.) &
-    ,bless &
+    ,usher &
     ,test_description_t &
     ,test_diagnosis_t &
     ,test_result_t &
@@ -55,10 +55,10 @@ contains
     type(prif_co_reduce_test_t) prif_co_reduce_test
 
     test_results = prif_co_reduce_test%run([ &
-       test_description_t("performing a logical .and. reduction", bless(check_logical)) &
-      ,test_description_t("performing a derived type reduction", bless(check_derived_type_reduction)) &
+       test_description_t("performing a logical .and. reduction", usher(check_logical)) &
+      ,test_description_t("performing a derived type reduction", usher(check_derived_type_reduction)) &
 #if HAVE_PARAM_DERIVED
-      ,test_description_t("performing a parameterized derived type reduction", bless(check_type_parameter_reduction)) &
+      ,test_description_t("performing a parameterized derived type reduction", usher(check_type_parameter_reduction)) &
 #endif
       ])
   end function

@@ -14,7 +14,7 @@ module prif_coarray_inquiry_test_m
     ,operator(.also.) &
     ,operator(.equalsExpected.) &
     ,operator(.expect.) &
-    ,bless &
+    ,usher &
     ,test_description_t &
     ,test_diagnosis_t &
     ,test_result_t &
@@ -44,8 +44,8 @@ contains
     type(prif_coarray_inquiry_test_t) prif_coarray_inquiry_test
 
     test_results = prif_coarray_inquiry_test%run([ &
-       test_description_t("preserving the prif_local_data_pointer for an allocated coarray", bless(check_prif_local_data_pointer)) &
-      ,test_description_t("checking passed cobounds", bless(check_cobounds)) &
+       test_description_t("preserving the prif_local_data_pointer for an allocated coarray", usher(check_prif_local_data_pointer)) &
+      ,test_description_t("checking passed cobounds", usher(check_cobounds)) &
     ])
   end function
 
