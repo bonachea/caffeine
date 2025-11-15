@@ -42,7 +42,9 @@ program native_multi_image
   USE, INTRINSIC :: ISO_FORTRAN_ENV
   integer :: me, ni, peer, tmp, team_id
   character(len=5) :: c
-  type(team_type) :: subteam, res
+#ifdef HAVE_TEAM
+  type(TEAM_TYPE) :: subteam, res
+#endif
 
   me = THIS_IMAGE()
   ni = NUM_IMAGES()
