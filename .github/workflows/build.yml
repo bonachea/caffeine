@@ -126,10 +126,6 @@ jobs:
         echo "FC=gfortran-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         echo "CC=gcc-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         echo "CXX=g++-${COMPILER_VERSION}" >> "$GITHUB_ENV"
-        # Veggies is incompatible with gfortran-15
-        if test "${{ matrix.version }}" = "15"; then \
-          echo "FPM_TEST_TARGET=--target julienne-driver" >> "$GITHUB_ENV" ; \
-        fi
 
     - name: Set flang variables
       if: matrix.compiler == 'flang'
@@ -177,9 +173,10 @@ jobs:
           : Homebrew GCC@15 needs binutils 2.44+ ; \
           HOMEBREW_BINUTILS=$(ls -d ${HOMEBREW_PREFIX}/Cellar/binutils/2.*/bin ) ; \
           ls -al ${HOMEBREW_BINUTILS} ; \
-          echo "FFLAGS=$FFLAGS -B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
-          echo "CFLAGS=$CFLAGS -B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
-          echo "CXXFLAGS=$CXXFLAGS -B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
+          echo "FFLAGS=${FFLAGS:+"$FFLAGS" }-B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
+          echo "CFLAGS=${CFLAGS:+"$CFLAGS" }-B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
+          echo "CXXFLAGS=${CXXFLAGS:+"$CXXFLAGS" }-B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
+          echo "LDFLAGS=${LDFLAGS:+"$LDFLAGS" }-B ${HOMEBREW_BINUTILS}" >> "$GITHUB_ENV" ; \
         fi
 
     - name: Install Ubuntu Container Dependencies
