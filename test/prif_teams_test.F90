@@ -170,7 +170,7 @@ contains
                     lcobounds = [1_c_int64_t], &
                     ucobounds = [int(num_imgs, c_int64_t)], &
                     size_in_bytes = element_size, &
-                    final_func = c_null_funptr, &
+                    final_func = CAF_NULL_FINAL_FUNC, &
                     coarray_handle = coarrays(i), &
                     allocated_memory = allocated_memory)
             end do

@@ -86,4 +86,10 @@
 #endif
 #define CAF_PRIF_VERSION (100 * CAF_PRIF_VERSION_MAJOR + CAF_PRIF_VERSION_MINOR)
 
+! PRIF-version-dependent helper macros
+#if CAF_PRIF_VERSION <= 7
+#  define CAF_NULL_FINAL_FUNC c_null_funptr
+#else
+#  define CAF_NULL_FINAL_FUNC NULL()
+#endif
 

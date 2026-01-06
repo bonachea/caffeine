@@ -164,6 +164,15 @@ module prif
       integer(c_size_t), intent(in), value :: count
       type(c_ptr), intent(in), value :: cdata
     end subroutine
+
+# if CAF_PRIF_VERSION >= 8
+    subroutine prif_coarray_cleanup_interface(handle, stat, errmsg) bind(C)
+      import :: prif_coarray_handle, c_int
+      type(prif_coarray_handle), pointer , intent(in) :: handle
+      integer(c_int), intent(out) :: stat
+      character(len=:), intent(out), allocatable :: errmsg
+    end subroutine
+# endif
   end interface
 
   interface
@@ -202,7 +211,11 @@ module prif
       implicit none
       integer(c_int64_t), dimension(:), intent(in) :: lcobounds, ucobounds
       integer(c_size_t), intent(in) :: size_in_bytes
+#   if CAF_PRIF_VERSION >= 8
+      procedure(prif_coarray_cleanup_interface), pointer, intent(in), optional :: final_func
+#   else
       type(c_funptr), intent(in) :: final_func
+#   endif
       type(prif_coarray_handle), intent(out) :: coarray_handle
       type(c_ptr), intent(out) :: allocated_memory
       integer(c_int), intent(out), optional :: stat

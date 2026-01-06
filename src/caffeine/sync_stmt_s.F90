@@ -2,6 +2,7 @@
 ! Terms of use are as specified in LICENSE.txt
 
 #include "assert_macros.h"
+#include "language-support.F90"
 
 submodule(prif:prif_private_s) sync_stmt_s
   ! DO NOT ADD USE STATEMENTS HERE
@@ -46,7 +47,7 @@ contains
             lcobounds = [1_c_int64_t], &
             ucobounds = [int(num_imgs,c_int64_t)], &
             size_in_bytes = sizeof_event * num_imgs, &
-            final_func = c_null_funptr, &
+            final_func = CAF_NULL_FINAL_FUNC, &
             coarray_handle = si_coarray_handle, &
             allocated_memory = allocated_memory)
       call c_f_pointer(allocated_memory, si_evt, [num_imgs])

@@ -52,7 +52,17 @@ contains
     coarray_handle%info%coarray_data = c_loc(unused2(2))
     coarray_handle%info%corank = size(lcobounds)
     coarray_handle%info%coarray_size = size_in_bytes
-    coarray_handle%info%final_func = final_func
+#   if CAF_PRIF_VERSION >= 8
+      if (.not. present(final_func)) then
+        coarray_handle%info%final_func = c_null_funptr
+      else if (.not. associated(final_func)) then
+        coarray_handle%info%final_func = c_null_funptr
+      else
+        coarray_handle%info%final_func = c_funloc(final_func)
+      end if
+#   else
+      coarray_handle%info%final_func = final_func
+#   endif
     coarray_handle%info%lcobounds(1:size(lcobounds)) = lcobounds
     coarray_handle%info%ucobounds(1:size(ucobounds)) = ucobounds
     coarray_handle%info%previous_handle = c_null_ptr

@@ -95,7 +95,7 @@ contains
 
     data_size = storage_size(dummy_element)/8
     call prif_allocate_coarray( &
-      lcobounds, ucobounds, data_size, c_null_funptr, &
+      lcobounds, ucobounds, data_size, CAF_NULL_FINAL_FUNC, &
       coarray_handle, allocated_memory)
 
     call c_f_pointer(allocated_memory, local_slice)
@@ -151,7 +151,12 @@ contains
     ! simple final_func case
     ff_count = 0
     call prif_allocate_coarray( &
-      lcobounds, ucobounds, data_size, c_funloc(coarray_cleanup_simple), &
+      lcobounds, ucobounds, data_size, &
+#   if CAF_PRIF_VERSION >= 8
+      coarray_cleanup_simple, &
+#   else
+      c_funloc(coarray_cleanup_simple), &
+#   endif
       ff_handle, allocated_memory)
     ALSO(ff_count .equalsExpected. 0)
 
@@ -161,7 +166,12 @@ contains
     ! final_func that errors on first three deallocations
     ff_count = 0
     call prif_allocate_coarray( &
-      lcobounds, ucobounds, data_size, c_funloc(coarray_cleanup_first_error), &
+      lcobounds, ucobounds, data_size, &
+#   if CAF_PRIF_VERSION >= 8
+      coarray_cleanup_first_error, &
+#   else
+      c_funloc(coarray_cleanup_first_error), &
+#   endif
       ff_handle, allocated_memory)
     ALSO(ff_count .equalsExpected. 0)
 
@@ -322,7 +332,7 @@ contains
 
     data_size = 10*storage_size(dummy_element)/8
     call prif_allocate_coarray( &
-      lcobounds, ucobounds, data_size, c_null_funptr, &
+      lcobounds, ucobounds, data_size, CAF_NULL_FINAL_FUNC, &
       coarray_handle, allocated_memory)
 
     call prif_size_bytes(coarray_handle, data_size=query_size)

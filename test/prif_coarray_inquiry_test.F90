@@ -73,7 +73,7 @@ contains
               lcobounds, &
               ucobounds, &
               int(storage_size(dummy_element)/8, c_size_t), &
-              c_null_funptr, &
+              CAF_NULL_FINAL_FUNC, &
               coarray_handle, &
               allocation_ptr)
       call prif_local_data_pointer(coarray_handle, local_ptr)
@@ -110,7 +110,7 @@ contains
     data_size = 64 * corank
 
     call prif_allocate_coarray( &
-      lcobounds, ucobounds, data_size, c_null_funptr, &
+      lcobounds, ucobounds, data_size, CAF_NULL_FINAL_FUNC, &
       coarray_handle, allocated_memory)
 
     ALSO(c_associated(allocated_memory))
