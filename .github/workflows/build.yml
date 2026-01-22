@@ -205,11 +205,13 @@ jobs:
         fi
 
     - name: Install Ubuntu Container Dependencies
-      if: ${{ contains(matrix.os, 'ubuntu') && matrix.container != '' && !contains(matrix.container, 'phhargrove') }}
+      #if: ${{ contains(matrix.os, 'ubuntu') && matrix.container != '' && !contains(matrix.container, 'phhargrove') }}
+      if: ${{ contains(matrix.os, 'ubuntu') && matrix.container != '' }}
       run: |
         set -x
         apt update
         apt install -y build-essential pkg-config make git curl
+        apt install -y gfortran-12
 
     - name: Install macOS Dependencies
       if: contains(matrix.os, 'macos')
@@ -231,19 +233,22 @@ jobs:
         echo "PATH=$(brew --prefix)/opt/llvm/bin:${PATH}" >> "$GITHUB_ENV"
 
     - name: Setup FPM
+      if: false
       uses: fortran-lang/setup-fpm@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         fpm-version: latest
 
     - name: Build FPM
-      if: false
+      if: true
       run: |
         set -x
         export FPM_VERSION=0.12.0
-        curl --retry 5 -LOsS https://github.com/fortran-lang/fpm/releases/download/v$FPM_VERSION/fpm-$FPM_VERSION.F90
+        #curl --retry 5 -LOsS https://github.com/fortran-lang/fpm/releases/download/v$FPM_VERSION/fpm-$FPM_VERSION.F90
+        curl --retry 5 -LOsS https://github.com/fortran-lang/fpm/releases/download/current/fpm.F90
         mkdir fpm-temp
-        gfortran-14 -o fpm-temp/fpm fpm-$FPM_VERSION.F90
+        #gfortran-14 -o fpm-temp/fpm fpm-$FPM_VERSION.F90
+        gfortran-12 -o fpm-temp/fpm fpm.F90
         echo "PATH=${PWD}/fpm-temp:${PATH}" >> "$GITHUB_ENV"
 
     - name: Version info
