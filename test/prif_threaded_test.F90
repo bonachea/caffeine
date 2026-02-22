@@ -105,7 +105,7 @@ contains
     function check_notify() result(diag)
         type(test_diagnosis_t) diag
 
-        integer :: me, num_imgs
+        integer :: me
         type(prif_notify_type) :: dummy_notify
         integer(c_size_t) :: sizeof_notify, sizeof_int
         type(prif_coarray_handle) :: coarray_handle_evt
@@ -122,13 +122,12 @@ contains
         diag = .true.
         sizeof_notify = int(storage_size(dummy_notify)/8, c_size_t)
         sizeof_int = c_sizeof(me)
-        call prif_num_images(num_images=num_imgs)
         call prif_this_image_no_coarray(this_image=me)
 
         ! type(notify_type) :: evt[*]
         call prif_allocate_coarray( &
                 lcobounds = [1_c_int64_t], &
-                ucobounds = [int(num_imgs,c_int64_t)], &
+                ucobounds = [integer(c_int64_t)::], &
                 size_in_bytes = sizeof_notify, &
                 final_func = c_null_funptr, &
                 coarray_handle = coarray_handle_evt, &
@@ -139,7 +138,7 @@ contains
         ! integer :: ctr[*]
         call prif_allocate_coarray( &
                 lcobounds = [1_c_int64_t], &
-                ucobounds = [int(num_imgs,c_int64_t)], &
+                ucobounds = [integer(c_int64_t)::], &
                 size_in_bytes = sizeof_int, &
                 final_func = c_null_funptr, &
                 coarray_handle = coarray_handle_ctr, &
