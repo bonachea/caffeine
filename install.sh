@@ -53,6 +53,7 @@ GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
 GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
 YES=false
 APPEND_CFLAGS=""
+APPEND_LDFLAGS=""
 
 list_prerequisites()
 {
@@ -376,6 +377,8 @@ FPM_CC="$($REALPATH $(command -v $CC))"
 if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   if [[ $FPM_FC =~ flang ]] && [[ $FPM_FC =~ $BREW_PREFIX ]] ; then
     APPEND_CFLAGS="-I$(dirname $(find "$BREW_PREFIX/Cellar/flang" -name ISO_Fortran_binding.h | head -1))"
+
+    APPEND_LDFLAGS="-Wl,-rpath=$(dirname $(find "$BREW_PREFIX/Cellar/flang" -name libflang_rt.runtime.so | head -1))"
   fi
 fi
 
@@ -496,7 +499,7 @@ echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
 
 CAFFEINE_PC="$PREFIX/lib/pkgconfig/caffeine.pc"
 cat << EOF > $CAFFEINE_PC
-CAFFEINE_FPM_LDFLAGS=$GASNET_LDFLAGS $GASNET_LIB_LOCATIONS
+CAFFEINE_FPM_LDFLAGS=$GASNET_LDFLAGS $GASNET_LIB_LOCATIONS $APPEND_LDFLAGS
 CAFFEINE_FPM_FC=$FPM_FC
 CAFFEINE_FPM_CC=$GASNET_CC
 CAFFEINE_FPM_CFLAGS=$GASNET_CFLAGS $GASNET_CPPFLAGS $APPEND_CFLAGS
