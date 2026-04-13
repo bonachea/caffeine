@@ -327,6 +327,8 @@ EOF
         exit 1
       fi
     done
+
+    ls -alR $BREW_PREFIX/Cellar/flang
   fi
 
   if [ -z ${REALPATH:+x} ] || [ -z ${MAKE:+x} ] ; then
