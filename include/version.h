@@ -1,13 +1,17 @@
-# /* Copyright (c), The Regents of the University of California */
-# /* Terms of use are as specified in LICENSE.txt */
+#if 0
+! /* Copyright (c), The Regents of the University of California */
+! /* Terms of use are as specified in LICENSE.txt */
 
-# /* NOTE: this is a dual-language header file, */
-# /*       and should ONLY contain portable preprocessor directives. */
+! /* NOTE: this is a dual-language header file, */
+! /*       and should ONLY contain portable preprocessor directives. */
+#endif
 
 #ifndef CAF_INCLUDED_VERSION_H
 #define CAF_INCLUDED_VERSION_H
 
-# /* Caffeine software package versioning */
+#if 0
+! /* Caffeine software package versioning */
+#endif
 #define CAF_RELEASE_VERSION_MAJOR 0
 #define CAF_RELEASE_VERSION_MINOR 7
 #define CAF_RELEASE_VERSION_PATCH 1

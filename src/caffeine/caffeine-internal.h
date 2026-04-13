@@ -1,13 +1,17 @@
-# /* Copyright (c), The Regents of the University of California */
-# /* Terms of use are as specified in LICENSE.txt */
+#if 0
+! /* Copyright (c), The Regents of the University of California */
+! /* Terms of use are as specified in LICENSE.txt */
 
-# /* NOTE: this is a dual-language header file, */
-# /*       and should ONLY contain portable preprocessor directives. */
+! /* NOTE: this is a dual-language header file, */
+! /*       and should ONLY contain portable preprocessor directives. */
+#endif
 
 #ifndef CAF_INCLUDED_CAFFEINE_INTERNAL_H
 #define CAF_INCLUDED_CAFFEINE_INTERNAL_H
 
-# /* define some macro portability helpers */
+#if 0
+! /* define some macro portability helpers */
+#endif
 #if defined(__GFORTRAN__) || defined(_CRAYFTN) || defined(NAGFOR)
 #  define CAF_CONCAT2(x,y)     x/**/y
 #  define CAF_CONCAT3(x,y,z)   x/**/y/**/z
@@ -19,8 +23,9 @@
 #endif
 #define CAF_STRINGIFY(x) CAF_STRINGIFY_HELPER(x)
 
-# /* AMO support defines */
-
+#if 0
+! /* AMO support defines */
+#endif
 #define CAF_OP_GET	0
 #define CAF_OP_SET	1
 #define CAF_OP_ADD	2
