@@ -2,174 +2,22 @@ name: Build
 
 on: [push, pull_request]
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
     name: ${{ matrix.compiler }}-${{ matrix.version }} ${{ matrix.network }} (${{ matrix.os }}) ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-2025' && 'wsl-bash {0}' || 'bash' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-14, macos-15, macos-15-intel, macos-26, macos-26-intel, ubuntu-24.04 ]
+        #os: [ macos-14, macos-15, macos-15-intel, macos-26, macos-26-intel, ubuntu-24.04 ]
+        os: [ ubuntu-24.04, windows-2025 ]
         compiler: [ gfortran ]
-        version: [ 13, 14, 15 ]
+        version: [ 14 ]
         network: [ smp ]
-        include:
 
-        # --- flang coverage ---
-          - os: macos-14
-            compiler: flang
-            version: 22
-            network: smp
-            native_multi_image: 1
-            brew_via_install: 1
-            FFLAGS: -fcoarray
-          - os: macos-15
-            compiler: flang
-            version: 22
-            network: smp
-            brew_via_install: 1
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-15-intel
-            compiler: flang
-            version: 22
-            network: smp
-            brew_via_install: 1
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-26
-            compiler: flang
-            version: 22
-            network: smp
-            brew_via_install: 1
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-26-intel
-            compiler: flang
-            version: 22
-            network: smp
-            brew_via_install: 1
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-
-          # https://hub.docker.com/r/snowstep/llvm/tags
-          - os: ubuntu-24.04
-            compiler: flang
-            version: latest
-            network: smp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-            container: snowstep/llvm:ubuntu-24.04-latest
-
-          # https://hub.docker.com/r/phhargrove/llvm-flang/tags
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 22
-            network: smp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-            container: phhargrove/llvm-flang:22.1.3-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 21
-            network: smp
-            container: phhargrove/llvm-flang:21.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 20
-            network: smp
-            container: phhargrove/llvm-flang:20.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 19
-            network: smp
-            FFLAGS: -mmlir -allow-assumed-rank
-            container: phhargrove/llvm-flang:19.1.1-latest
-
-        # --- PRIF-old coverage ---
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 21
-            network: smp
-            label: PRIF-0.5
-            FFLAGS: -DFORCE_PRIF_0_5
-            container: phhargrove/llvm-flang:21.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 21
-            network: smp
-            label: PRIF-0.6
-            FFLAGS: -DFORCE_PRIF_0_6
-            container: phhargrove/llvm-flang:21.1.0-latest
-
-        # --- udp coverage for selected configs ---
-          - os: macos-15
-            compiler: gfortran
-            version: 14
-            network: udp
-
-          - os: ubuntu-24.04
-            compiler: gfortran
-            version: 15
-            network: udp
-          - os: ubuntu-24.04
-            compiler: gfortran
-            version: 14
-            network: udp
-
-          - os: macos-15-intel
-            compiler: flang
-            version: 22
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-15
-            compiler: flang
-            version: 22
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-26-intel
-            compiler: flang
-            version: 22
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-          - os: macos-26
-            compiler: flang
-            version: 22
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 20
-            network: udp
-            container: phhargrove/llvm-flang:20.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 21
-            network: udp
-            container: phhargrove/llvm-flang:21.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: 22
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-            container: phhargrove/llvm-flang:22.1.0-latest
-          - os: ubuntu-24.04
-            compiler: flang
-            version: latest
-            network: udp
-            native_multi_image: 1
-            FFLAGS: -fcoarray
-            container: snowstep/llvm:ubuntu-24.04-latest
 
     container:
       image: ${{ matrix.container }}
@@ -183,12 +31,53 @@ jobs:
       GASNET_SPAWNFN: L
       GASNET_MASTERIP: 127.0.0.1
       CAF_IMAGES: 8
+      GLOBALENV: GITHUB_ENV/p:GLOBALENV:COMPILER_VERSION:FFLAGS:PREFIX:GASNET_CONFIGURE_ARGS:GASNET_SPAWN_VERBOSE:GASNET_SPAWNFN:GASNET_MASTERIP:CAF_IMAGES
+      WSLENV: GITHUB_ENV/p:GLOBALENV
 
     steps:
+    - name: Install WSL
+      if: ${{ contains(matrix.os, 'windows') }}
+      uses: Vampire/setup-wsl@v7
+      with:
+        distribution: Debian-13
+        additional-packages:
+          coreutils
+          curl
+          git
+          make
+          pkgconf
+          perl
+
+    - name: WSL check
+      if: ${{ contains(matrix.os, 'windows') }}
+      shell: bash
+      run: |
+        set -x
+        wsl.exe --list --all
+        ( set +e ; wsl.exe --list --online ; exit 0 )
+        env | sort
+        cat "$GITHUB_ENV"
+        #export WSLENV=$(perl -e 'print join(":", map { (split /=/)[0] } <>)' "$GITHUB_ENV")
+        #echo "WSLENV=${WSLENV}" >> "$GITHUB_ENV"
+        echo "WSLENV=${GLOBALENV}" >> "$GITHUB_ENV"
+        cat "$GITHUB_ENV"
+
+    - name: Install WSL Dependencies
+      if: ${{ contains(matrix.os, 'windows') && matrix.container == '' && !matrix.brew_via_install }}
+      run: |
+        set -x
+        sudo apt update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install gfortran-14
+        #sudo DEBIAN_FRONTEND=noninteractive apt-get -y install gfortran-14 curl make pkgconf git coreutils
+        #sudo DEBIAN_FRONTEND=noninteractive apt-get -y install fortran-fpm
+        #sudo DEBIAN_FRONTEND=noninteractive apt-get -y install flang-21
+
     - name: Set gfortran variables
       if: matrix.compiler == 'gfortran'
       run: |
         set -x
+        cat "$GITHUB_ENV"
+        env | sort
         echo "FC=gfortran-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         echo "CC=gcc-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         echo "CXX=g++-${COMPILER_VERSION}" >> "$GITHUB_ENV"
@@ -196,6 +85,10 @@ jobs:
         if [[ ${{ matrix.os }} =~ macos-26 ]] ; then \
           echo "GASNET_CONFIGURE_ARGS=$GASNET_CONFIGURE_ARGS --enable-force-posix-realtime" >> "$GITHUB_ENV" ; \
         fi
+        cat "$GITHUB_ENV"
+        export WSLENV=$(perl -e 'print join(":", map { (split /=/)[0] } <>)' "$GITHUB_ENV")
+        echo "WSLENV=${GLOBALENV}:${WSLENV}" >> "$GITHUB_ENV"
+        cat "$GITHUB_ENV"
 
     - name: Set flang variables
       if: ${{ matrix.compiler == 'flang' && !matrix.brew_via_install }}
@@ -227,7 +120,7 @@ jobs:
       uses: actions/checkout@v1
 
     - name: Install Ubuntu Native Dependencies
-      if: ${{ contains(matrix.os, 'ubuntu') && matrix.container == '' }}
+      if: ${{ contains(matrix.os, 'ubuntu') && matrix.container == '' && !matrix.brew_via_install }}
       run: |
         set -x
         sudo apt update
@@ -309,8 +202,15 @@ jobs:
     - name: Build Caffeine (install.sh)
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do \
-            eval echo "$var=\$$var"; done
+            ( set +u ; eval echo "$var=\$$var" ); done 
         set -x
+        pwd
+        env | sort
+        ls -al
+        ls -al /bin/bash
+        echo $PWD
+        ls -al ./install.sh
+        chmod +x ./install.sh
         ./install.sh --prefix=${PREFIX} --network=${{ matrix.network }} --verbose
 
     - name: Run examples
