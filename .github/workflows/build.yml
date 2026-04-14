@@ -99,6 +99,15 @@ jobs:
             FFLAGS: -mmlir -allow-assumed-rank
             container: phhargrove/llvm-flang:19.1.1-latest
 
+        # --- lfortran coverage ---
+
+          # https://hub.docker.com/r/phhargrove/lfortran/tags
+          - os: ubuntu-24.04
+            compiler: lfortran
+            version: 0.62
+            network: smp
+            container: phhargrove/lfortran:0.62.0-1
+
         # --- PRIF-old coverage ---
           - os: ubuntu-24.04
             compiler: flang
@@ -211,6 +220,16 @@ jobs:
       run: |
         set -x
         echo "FC=flang-new" >> "$GITHUB_ENV" 
+        echo "CC=clang" >> "$GITHUB_ENV"
+        echo "CXX=clang++" >> "$GITHUB_ENV"
+
+    - name: Setup lfortran dependencies and variables
+      if: ${{ matrix.compiler == 'lfortran' }}
+      run: |
+        set -x
+        apt update
+        apt install -y llvm clang
+        echo "FC=lfortran" >> "$GITHUB_ENV" 
         echo "CC=clang" >> "$GITHUB_ENV"
         echo "CXX=clang++" >> "$GITHUB_ENV"
 
