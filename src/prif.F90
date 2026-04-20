@@ -150,7 +150,7 @@ module prif
 
   type, public, bind(C) :: prif_coarray_handle
     private
-    type(c_ptr) :: info = C_NULL_PTR
+    type(c_ptr) :: info
   end type
 
   type, public :: prif_team_type
