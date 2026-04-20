@@ -183,7 +183,7 @@ contains
                     lcobounds = [1_c_int64_t], &
                     ucobounds = [integer(c_int64_t)::], &
                     size_in_bytes = element_size, &
-                    final_func = final_func(coarray_cleanup), &
+                    final_func = final_func_proc(coarray_cleanup), &
                     coarray_handle = coarrays(i), &
                     allocated_memory = allocated_memory)
             end do

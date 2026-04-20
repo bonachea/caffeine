@@ -138,7 +138,7 @@ contains
     ff_count = 0
     call prif_allocate_coarray( &
       [integer(c_int64_t) :: 1], [integer(c_int64_t) :: ], &
-      data_size, final_func(coarray_cleanup_simple), &
+      data_size, final_func_proc(coarray_cleanup_simple), &
       ff_handle, allocated_memory)
     ALSO(ff_count .equalsExpected. 0)
 
@@ -149,7 +149,7 @@ contains
     ! final_func written in C
     call prif_allocate_coarray( &
       [integer(c_int64_t) :: 1], [integer(c_int64_t) :: ], &
-      data_size, final_func(coarray_cleanup_simple_c), &
+      data_size, final_func_proc(coarray_cleanup_simple_c), &
       ff_handle, allocated_memory)
     ALSO(ff_count .equalsExpected. 1)
 
@@ -174,7 +174,7 @@ contains
     ff_count = 0
     call prif_allocate_coarray( &
       [integer(c_int64_t) :: 1], [integer(c_int64_t) :: ], &
-      data_size, final_func(coarray_cleanup_first_error), &
+      data_size, final_func_proc(coarray_cleanup_first_error), &
       ff_handle, allocated_memory)
     ALSO(ff_count .equalsExpected. 0)
 

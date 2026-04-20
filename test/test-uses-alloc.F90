@@ -32,12 +32,12 @@ use prif, only : &
 #if !defined(CAF_PRIF_VERSION) || CAF_PRIF_VERSION >= 8
   use unit_test_parameters_m, only: final_func_usher
 #  if HAVE_PROCEDURE_ACTUAL_FOR_POINTER_DUMMY
-#    define final_func(proc) proc
+#    define final_func_proc(proc) proc
 #  else
-#    define final_func(proc) final_func_usher(proc)
+#    define final_func_proc(proc) final_func_usher(proc)
 #  endif
 #else
-#  define final_func(proc) c_funloc(proc)
+#  define final_func_proc(proc) c_funloc(proc)
 #endif
 
   use iso_c_binding, only: &
