@@ -98,11 +98,16 @@ contains
     end associate
 
     object = object_t(me, .true., "hooey", me*(10.,0.))
+    print *, "BEFORE:", object%i, object%fallacy, object%actor, object%issues
+    print *, "SIZE in bytes=", storage_size(object,c_size_t)/8
+#if !SKIP_PROBLEM
     call prif_co_broadcast_cptr(c_loc(object), storage_size(object,c_size_t)/8, source_image=ni)
+#endif
+    print *, "AFTER:", object%i, object%fallacy, object%actor, object%issues
+
     associate(expected_object => object_t(ni, .true., "hooey", ni*(10.,0.)))
       ALSO2(object == expected_object, "co_broadcast_cptr derived type")
     end associate
-
 
   end function
 
