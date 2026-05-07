@@ -246,7 +246,8 @@ jobs:
 
     - name: Setup FPM
       if: ${{ !matrix.brew_via_install }}
-      uses: fortran-lang/setup-fpm@main
+      #uses: fortran-lang/setup-fpm@main
+      uses: perazz/setup-fpm@fix/node24-upgrade
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         fpm-version: latest
