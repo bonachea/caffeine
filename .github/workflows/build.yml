@@ -93,7 +93,8 @@ jobs:
             version: latest
             # pinned to old build due to https://github.com/kei-g/docker-llvm/issues/78
             #container: snowstep/llvm:ubuntu-24.04-latest
-            container: snowstep/llvm:ubuntu-24.04-20260517082025
+            #container: snowstep/llvm:ubuntu-24.04-20260517082025
+            container: snowstep/llvm:ubuntu-24.04-20260601024917-256d09201cf9-flang-rt-modules
 
           # https://hub.docker.com/r/phhargrove/llvm-flang/tags
           - os: ubuntu-24.04
@@ -203,7 +204,8 @@ jobs:
             network: udp
             # pinned to old build due to https://github.com/kei-g/docker-llvm/issues/78
             #container: snowstep/llvm:ubuntu-24.04-latest
-            container: snowstep/llvm:ubuntu-24.04-20260517082025
+            #container: snowstep/llvm:ubuntu-24.04-20260517082025
+            container: snowstep/llvm:ubuntu-24.04-20260601024917-256d09201cf9-flang-rt-modules
 
     container:
       image: ${{ matrix.container }}
