@@ -68,6 +68,9 @@
 #ifndef HAVE_ALLOC_COARRAY
 #define HAVE_ALLOC_COARRAY HAVE_COARRAY
 #endif
+#ifndef HAVE_ALLOC_COARRAY_CLEANUP
+#define HAVE_ALLOC_COARRAY_CLEANUP HAVE_ALLOC_COARRAY
+#endif
 #ifndef HAVE_SAVE_COARRAY
 #define HAVE_SAVE_COARRAY HAVE_COARRAY
 #endif
@@ -554,29 +557,35 @@ program native_multi_image
 
       implicit none
       logical, volatile, save :: once = .true.  ! volatile is workaround for flang optimizer bug
+#   if HAVE_ALLOC_COARRAY_CLEANUP
       integer, allocatable :: aca_int_1[:]
       integer, allocatable :: aca_int_2[:,:]
+#   endif
       integer, save, allocatable :: aca_int_3[:,:,:]
       if (once) then
         call status("Testing ALLOCATABLE coarrays...")
       end if
-#   if VERBOSE
+#   if HAVE_ALLOC_COARRAY_CLEANUP
+#    if VERBOSE
       if (THIS_IMAGE() == 1) &
         write (*,*) once, "ENTRY:", ALLOCATED(aca_int_1), ALLOCATED(aca_int_2), ALLOCATED(aca_int_3)
-#   endif
+#    endif
       CHECK_ALLOC(aca_int_1, .false.)
       CHECK_ALLOC(aca_int_2, .false.)
+#   endif
       CHECK_ALLOC(aca_int_3, .not. once)
 
       if (once) then
+#   if HAVE_ALLOC_COARRAY_CLEANUP
         ALLOCATE(aca_int_1[*])
         ALLOCATE(aca_int_2[2,*])
-        ALLOCATE(aca_int_3[2,3,*])
         CHECK_ALLOC(aca_int_1, .true.)
         CHECK_ALLOC(aca_int_2, .true.)
+#   endif
+        ALLOCATE(aca_int_3[2,3,*])
         CHECK_ALLOC(aca_int_3, .true.)
       end if
-#   if VERBOSE
+#   if VERBOSE && HAVE_ALLOC_COARRAY_CLEANUP
       if (THIS_IMAGE() == 1) &
         write (*,*) once, "EXIT: ", ALLOCATED(aca_int_1), ALLOCATED(aca_int_2), ALLOCATED(aca_int_3)
 #   endif
