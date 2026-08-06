@@ -361,9 +361,11 @@ program native_multi_image
 
   integer :: me, ni, peer, i, ia(3)
   character(len=10) :: c, ca(3)
-# if HAVE_TEAM_TYPE
+# if HAVE_TEAM
   integer :: team_id
   type(TEAM_TYPE) :: subteam
+# endif
+# if HAVE_TEAM_TYPE
   type(TEAM_TYPE) :: default_team
 # endif
 # if HAVE_MAIN_COARRAY
@@ -439,40 +441,52 @@ program native_multi_image
 # endif
 # if HAVE_CO_MIN
     STATUS("Testing CO_MIN...")
-    i = 100*me
+    i = 10*(ni-me+1)
     ia = i
     call CO_MIN(i)
-    CHECK_VALI(i,100)
+    CHECK_VALI(i,10)
     call CO_MIN(i,1)
     call CO_MIN(ia)
-    CHECK_ASSERT(all(ia == 100))
+    CHECK_ASSERT(all(ia == 10))
     call CO_MIN(ia,1)
-    c = tostring(100*me, len(c))
+    c = tostring(10*(ni-me+1), len(c))
     ca = c
+#   if VERBOSE
+      write(*,'(I3,A,A)') THIS_IMAGE(), ": BEFORE CO_MIN(CHARACTER): ", c
+#   endif
     call CO_MIN(c)
-    CHECK_ASSERT(c == tostring(100, len(c)))
+#   if VERBOSE
+      write(*,'(I3,A,A)') THIS_IMAGE(), ": AFTER  CO_MIN(CHARACTER): ", c
+#   endif
+    CHECK_ASSERT(c == tostring(10, len(c)))
     call CO_MIN(c,1)
     call CO_MIN(ca)
-    CHECK_ASSERT(all(ca == tostring(100, len(c))))
+    CHECK_ASSERT(all(ca == tostring(10, len(c))))
     call CO_MIN(ca,1)
 # endif
 # if HAVE_CO_MAX
     STATUS("Testing CO_MAX...")
-    i = 10*me
+    i = 100*me
     ia = i
     call CO_MAX(i)
-    CHECK_VALI(i,10*ni)
+    CHECK_VALI(i,100*ni)
     call CO_MAX(i,1)
     call CO_MAX(ia)
-    CHECK_ASSERT(all(ia == 10*ni))
+    CHECK_ASSERT(all(ia == 100*ni))
     call CO_MAX(ia,1)
-    c = tostring(10*me, len(c))
+    c = tostring(100*me, len(c))
     ca = c
+#   if VERBOSE
+      write(*,'(I3,A,A)') THIS_IMAGE(), ": BEFORE CO_MAX(CHARACTER): ", c
+#   endif
     call CO_MAX(c)
-    CHECK_ASSERT(c == tostring(10*ni, len(c)))
+#   if VERBOSE
+      write(*,'(I3,A,A)') THIS_IMAGE(), ": AFTER  CO_MAX(CHARACTER): ", c
+#   endif
+    CHECK_ASSERT(c == tostring(100*ni, len(c)))
     call CO_MAX(c,1)
     call CO_MAX(ca)
-    CHECK_ASSERT(all(ca == tostring(10*ni, len(c))))
+    CHECK_ASSERT(all(ca == tostring(100*ni, len(c))))
     call CO_MAX(ca,1)
 # endif
 # if HAVE_CO_BROADCAST
