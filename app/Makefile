@@ -2,8 +2,9 @@
 # To run this test with Caffeine, please execute `./run-fpm.sh run` in the top-level directory
 
 # overridable settings
-export NAGFORTRAN_NUM_IMAGES?=4
-export GFORTRAN_NUM_IMAGES?=4
+NUM_IMAGES?=4
+NAGFORTRAN_NUM_IMAGES?=$(NUM_IMAGES)
+GFORTRAN_NUM_IMAGES?=$(NUM_IMAGES)
 FLAGS=
 NATIVE_FLAGS=$$($(MAKE) --no-print-directory print-flags FC=$$FC)
 GFORTRAN=gfortran
@@ -17,6 +18,14 @@ print-flags:
 	@./print-native-flags -s
 	@rm -f print-native-flags
 
+gcc:
+	@set -x ; \
+	export FC=$(GFORTRAN) ; \
+	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
+	$$FC -g -fcoarray=lib $$NATIVE_FLAGS $(FLAGS) \
+	    native-multi-image.F90 -o native-multi-image-gcc -lcaf_shmem
+	env GFORTRAN_NUM_IMAGES=$(GFORTRAN_NUM_IMAGES) ./native-multi-image-gcc
+
 nag:
 	@set -x ; \
 	export FC=nagfor ; \
@@ -27,13 +36,14 @@ nag:
 	@rm -f native-multi-image.i.F90
 	env NAGFORTRAN_NUM_IMAGES=$(NAGFORTRAN_NUM_IMAGES) ./native-multi-image-nag
 
-gcc:
+cce:
 	@set -x ; \
-	export FC=$(GFORTRAN) ; \
+	export FC=crayftn ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
-	$$FC -g -fcoarray=lib $$NATIVE_FLAGS $(FLAGS) \
-	    native-multi-image.F90 -o native-multi-image-gcc -lcaf_shmem
-	env GFORTRAN_NUM_IMAGES=$(GFORTRAN_NUM_IMAGES) ./native-multi-image-gcc
+	$$FC -g -hcaf -O0 $$NATIVE_FLAGS $(FLAGS) \
+	    native-multi-image.F90 -o native-multi-image-cray
+	./native-multi-image-cray
+	srun -n $(NUM_IMAGES) ./native-multi-image-cray
 
 clean:
 	rm -f *.mod *.i.F90 native-multi-image-nag native-multi-image-gcc

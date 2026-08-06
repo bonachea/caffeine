@@ -101,7 +101,7 @@ subroutine write_flags
      !call set("-coarray=cosmp")
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
-     call no("NOTIFY")
+     call no("NOTIFY") ! missing F2023 feature
 #  endif
 #elif __GFORTRAN__
    if (.not. stand_alone) return
@@ -109,13 +109,22 @@ subroutine write_flags
      !call set("-fcoarray=lib")
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
-     call no("NOTIFY")
-     call no("IMAGE_INDEX_TEAM_NUMBER")
-     call no("NUM_IMAGES_TEAM")
-     call no("CO_MIN")
-     call no("CO_MAX")
+     call no("NOTIFY") ! missing F2023 feature
+     call no("IMAGE_INDEX_TEAM_NUMBER") ! https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126777
+     call no("NUM_IMAGES_TEAM")         ! https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126781 
+     call no("CO_MIN") ! https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126776
+     call no("CO_MAX") ! CO_MIN/CO_MAX(character) runtime crash
 #  endif
 #elif _CRAYFTN
+   if (.not. stand_alone) return
+#  if _RELEASE_MAJOR >= 20
+   ! More details in _RELEASE_MINOR, _RELEASE_PATCHLEVEL, _RELEASE_STRING
+     !call set("-hcaf")
+     call set("-DTYPES_PRIF_COMPLIANT=0")
+
+     call no("COSHAPE") ! missing F2018 feature
+     call set("-DIGNORE_FAILURES=2") ! CO_MIN(character) gets the wrong answer at runtime
+#  endif
 #endif
 
   if (allocated(flags)) write(*,'(A)') flags
@@ -133,6 +142,7 @@ subroutine define(flag,val)
   logical, intent(in) :: val
   character(:), allocatable :: tmp
   if (INDEX(flag,"HAVE") > 0 .or. INDEX(flag,"-D") > 0) error stop flag
+  allocate(character(0) :: tmp)
   tmp = "-DHAVE_"
   tmp = tmp // flag
   if (.not. val) tmp = tmp // "=0"
@@ -141,6 +151,7 @@ end subroutine
 subroutine set(flag)
   character(*), intent(in) :: flag
   if (.not. allocated(flags)) then
+    allocate(character(0) :: flags)
     flags = "-DHAVE_MULTI_IMAGE"
   end if
   flags = flags // " " // flag
