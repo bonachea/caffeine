@@ -177,6 +177,7 @@
 #define STATUS(msg_expr) \
   BLOCK ; \
     character(len=:), allocatable :: stat_msg__ ; \
+    allocate(character(0) :: stat_msg__) ; \
     stat_msg__ = msg_expr ; \
     call status(stat_msg__) ; \
   END BLOCK
@@ -231,20 +232,14 @@ module helpers
       integer, intent(in) :: int
       integer, intent(in), optional :: width
       character(len=:), allocatable :: res
-      integer :: w
       if (present(width)) then
-        w = width
-        block 
-          character(len=w) :: str
-          write(str, *) int
-          res = adjustr(str)
-        end block
+        allocate(character(width) :: res)
+        write(res, '(I0)') int
+        res = adjustr(res)
       else
-        block 
-          character(len=128) :: str
-          write(str, *) int
-          res = trim(adjustl(str))
-        end block
+        allocate(character(128) :: res)
+        write(res, '(I0)') int
+        res = trim(adjustl(res))
       end if
     end function
 
@@ -312,7 +307,6 @@ subroutine test_save_extern_coarray()
 end subroutine
 
 module coarrays
-  use helpers
   implicit none
   
 # if HAVE_MODULE_COARRAY
@@ -326,6 +320,7 @@ module coarrays
   contains
   subroutine test_module_coarray()
 # if HAVE_MODULE_COARRAY
+    use helpers
     implicit none
     logical, save :: once = .true.
 
