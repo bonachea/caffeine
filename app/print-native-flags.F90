@@ -127,6 +127,18 @@ subroutine write_flags
      call no("COSHAPE") ! missing F2018 feature
      call set("-DIGNORE_FAILURES=2") ! CO_MIN(character) get wrong answer with > 9 images
 #  endif
+#elif __INTEL_COMPILER
+   if (.not. stand_alone) return
+#  if __INTEL_COMPILER >= 20250302
+     !call set("-coarray")
+     call set("-DTYPES_PRIF_COMPLIANT=0")
+
+     call no("NOTIFY") ! missing F2023 feature
+     call no("FORM_TEAM") ! runtime errors on FORM TEAM
+     call no("CHANGE_TEAM") ! runtime errors on FORM TEAM
+     call no("TEAM_TYPE") ! avoid runtime errors from CHECK_TYPE_COMPLIANCE
+     call set("-DIGNORE_FAILURES=4") ! CO_MIN/CO_MAX(character) get the wrong answer at runtime (no change)
+#  endif
 #endif
 
   if (allocated(flags)) write(*,'(A)') flags
