@@ -571,7 +571,9 @@ cat << EOF > $RUN_FPM_SH
 FPM="${FPM}"
 FC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_FC`"
 CC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CC`"
-FFLAGS="$compiler_flag"
+NATIVEFLAGS=""
+RAWFLAGS="$compiler_flag"
+FFLAGS="\$NATIVEFLAGS \$RAWFLAGS"
 CFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CFLAGS`"
 LDFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_LDFLAGS`"
 FPM_DRIVER=\${FPM_DRIVER:-\`realpath \$0\`}
@@ -595,6 +597,15 @@ elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
   --c-flag "\$CFLAGS" \\
   --link-flag "\$LDFLAGS" \\
   "\$@"
+elif echo "set-native" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  set -e
+  cmd="\$FC \$RAWFLAGS app/print-native-flags.F90 -o build/print-native-flags $APPEND_LDFLAGS"
+  eval \$cmd || (set -x ; eval \$cmd)
+  NATIVEFLAGS="\`build/print-native-flags\`"
+  rm -f build/print-native-flags
+  sed -i.bak 's/^NATIVEFLAGS=.*\$/NATIVEFLAGS="'"\$NATIVEFLAGS"'"/' \$FPM_DRIVER
+  rm -f \$FPM_DRIVER.bak
+  echo NATIVEFLAGS=\"\$NATIVEFLAGS\"
 elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   LINE=--------------------------------------------------
   SRCDIR=\$(dirname \$FPM_DRIVER)
@@ -655,6 +666,8 @@ EOF
 chmod u+x $RUN_FPM_SH
 # for backwards-compatibility of instructions/scripting:
 ( cd build && ln -f -s ../$RUN_FPM_SH run-fpm.sh )
+
+./$RUN_FPM_SH set-native
 
 ./$RUN_FPM_SH build $VERBOSE || \
 ( set +x

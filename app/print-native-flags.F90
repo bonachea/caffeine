@@ -1,5 +1,5 @@
 program print_native_flags
-  use iso_fortran_env
+  use iso_fortran_env, only: COMPILER_VERSION, COMPILER_OPTIONS
   implicit none
 
   character(:), allocatable :: flags
