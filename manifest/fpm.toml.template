@@ -12,4 +12,10 @@ julienne = {git = "https://github.com/berkeleylab/julienne.git", tag = "4.1.0"}
 [install]
 library = true
 
+[[executable]]
+name = "native-multi-image"
+source-dir = "app"
+main = "native-multi-image.F90"
+
 [build]
+auto-executables = false
