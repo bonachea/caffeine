@@ -141,15 +141,11 @@ jobs:
             compiler: lfortran
             version: latest
             container: ghcr.io/lfortran/lfortran:latest
-            native_multi_image: true
-            FFLAGS: --coarray=true -DHAVE_TEAM_NUMBER=0 -DHAVE_GET_TEAM=0 -DHAVE_THIS_IMAGE_TEAM=0 -DHAVE_NUM_IMAGES_TEAM=0 -DHAVE_ALLOC_COARRAY_CLEANUP=0 -DHAVE_COARRAY_QUERY=0 -DHAVE_COBOUND -DHAVE_PUTGET_INTRINSIC_ARRAY_CONTIG=0 -DHAVE_EVENT=0 -DHAVE_LOCK=0 -DHAVE_NOTIFY=0 
 
           - os: ubuntu-22.04
             compiler: lfortran
             version: 0.64
             container: ghcr.io/lfortran/lfortran:v0.64.0
-            native_multi_image: true
-            FFLAGS: --coarray=true -DHAVE_TEAM=0 -DHAVE_ALLOC_COARRAY=0 -DHAVE_COARRAY_QUERY=0 -DHAVE_PUTGET_INTRINSIC_ARRAY_CONTIG=0 -DHAVE_EVENT=0 -DHAVE_LOCK=0 -DHAVE_NOTIFY=0
 
           - os: ubuntu-22.04
             compiler: lfortran
@@ -247,9 +243,6 @@ jobs:
 
     env:
       COMPILER_VERSION: ${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }}
-      NATIVE_MULTI_IMAGE: ${{ matrix.native_multi_image || 
-          ( matrix.compiler == 'flang' && ( ! matrix.version || matrix.version >= 22 || matrix.version == 'latest' ) ) 
-        }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
       PREFIX: install
@@ -359,15 +352,6 @@ jobs:
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
         fi
-        if [ "${NATIVE_MULTI_IMAGE}" == true ] ; then
-          if [[ $COMPILER_VERSION == latest ]] ; then
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_ALLOC_COARRAY_CLEANUP=0 -DHAVE_ALLOC_COARRAY_DEALLOC=0 -DHAVE_COARRAY_INIT=0 -DHAVE_COARRAY_LOCAL_ACCESS=0 -DHAVE_IMAGE_INDEX_TEAM=0 -DHAVE_THIS_IMAGE_TEAM=0 -DHAVE_NUM_IMAGES_TEAM=0 -DHAVE_TEAM_NUMBER_TEAM=0 -DHAVE_PUTGET=0 -DHAVE_EVENT=0 -DHAVE_EVENT_TYPE -DHAVE_LOCK_TYPE -DHAVE_NOTIFY_TYPE -DIGNORE_FAILURES=6" >> "$GITHUB_ENV"
-          elif [[ $COMPILER_VERSION == 23 ]] ; then
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_ALLOC_COARRAY_CLEANUP=0 -DHAVE_ALLOC_COARRAY_DEALLOC=0 -DHAVE_COARRAY_INIT=0 -DHAVE_COARRAY_LOCAL_ACCESS=0 -DHAVE_IMAGE_INDEX_TEAM=0 -DHAVE_THIS_IMAGE_TEAM=0 -DHAVE_NUM_IMAGES_TEAM=0 -DHAVE_TEAM_NUMBER_TEAM=0 -DHAVE_PUTGET=0 -DHAVE_EVENT=0 -DHAVE_EVENT_TYPE -DHAVE_LOCK_TYPE -DHAVE_NOTIFY_TYPE -DIGNORE_FAILURES=6" >> "$GITHUB_ENV"
-          else #  $COMPILER_VERSION == 22
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_COARRAY=0 -DHAVE_THIS_IMAGE_TEAM=0 -DHAVE_NUM_IMAGES_TEAM=0 -DHAVE_TEAM_NUMBER_TEAM=0 -DHAVE_EVENT_TYPE -DHAVE_LOCK_TYPE -DHAVE_NOTIFY_TYPE -DIGNORE_FAILURES=8" >> "$GITHUB_ENV"
-          fi
-        fi
 
     - name: Setup lfortran dependencies and variables
       if: ${{ matrix.compiler == 'lfortran' }}
@@ -398,12 +382,6 @@ jobs:
         # disable shared-memory bypass with network=udp to simulate multi-node runs
         if test "${{ matrix.network }}" = "udp"; then
           echo "GASNET_SUPERNODE_MAXSIZE=1" >> "$GITHUB_ENV"
-        fi
-        # Turn some knobs for a compiler that natively uses PRIF for multi-image features:
-        # HAVE_MULTI_IMAGE : controls app/native-multi-image and prif_init testing
-        # HAVE_MULTI_IMAGE_SUPPORT : force-enable Julienne's multi-image support
-        if [ "${NATIVE_MULTI_IMAGE}" == true ] ; then
-          echo "FFLAGS=$FFLAGS -DHAVE_MULTI_IMAGE -DHAVE_MULTI_IMAGE_SUPPORT" >> "$GITHUB_ENV"
         fi
 
     - name: Set Workflow Dispatch Environment
@@ -451,6 +429,9 @@ jobs:
             eval echo "$var=\$$var"; done
         ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --verbose \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
+        if ! grep -q 'NATIVEFLAGS=""' run-fpm.sh ; then
+          echo "NATIVE_MULTI_IMAGE=true" >> "$GITHUB_ENV"
+        fi
 
     ##########################################################################
     # Caffeine Testing
