@@ -754,24 +754,18 @@ program native_multi_image
   allocate(aca_int_1[*])
   CHECK_VALL(ALLOCATED(aca_int_1), .true.)
 
-# if !__LFORTRAN__
-  ! corank > 1 currently broken: lfortran#12370
-  ! trailing lcobound not yet supported: lfortran#12371
   allocate(aca_int_2[10:11,*], aca_int_3[100:101,200:202,*])
   CHECK_VALL(ALLOCATED(aca_int_2), .true.)
   CHECK_VALL(ALLOCATED(aca_int_3), .true.)
-# endif
 
 #   if HAVE_ALLOC_COARRAY_DEALLOC
     STATUS("Testing coarray deallocation...")
     deallocate(aca_int_1)
     CHECK_VALL(ALLOCATED(aca_int_1), .false.)
 
-#   if !__LFORTRAN__
     deallocate(aca_int_2, aca_int_3)
     CHECK_VALL(ALLOCATED(aca_int_2), .false.)
     CHECK_VALL(ALLOCATED(aca_int_3), .false.)
-#   endif
 #   endif
 # endif
 
