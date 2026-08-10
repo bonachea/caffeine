@@ -6,6 +6,7 @@ NUM_IMAGES?=4
 FLAGS=
 NATIVE_FLAGS=$$($(MAKE) --no-print-directory print-flags FC=$$FC)
 GFORTRAN=gfortran
+FC_FORCE=
 
 # ----------------------------------------------------------------
 
@@ -20,7 +21,7 @@ print-flags:
 
 gcc:
 	@set -x ; \
-	export FC=$(GFORTRAN) ; \
+	export FC=$(if $(FC_FORCE),$(FC_FORCE),$(GFORTRAN)) ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
 	$$FC -g -fcoarray=lib $$NATIVE_FLAGS $(FLAGS) \
 	    native-multi-image.F90 -o native-multi-image-gcc -lcaf_shmem
@@ -28,7 +29,7 @@ gcc:
 
 nag:
 	@set -x ; \
-	export FC=nagfor ; \
+	export FC=$(if $(FC_FORCE),$(FC_FORCE),nagfor) ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
 	$(GFORTRAN) -E -DNAGFOR $$NATIVE_FLAGS $(FLAGS) \
 	    native-multi-image.F90 > native-multi-image.i.F90 && \
@@ -38,7 +39,7 @@ nag:
 
 cce:
 	@set -x ; \
-	export FC=ftn ; \
+	export FC=$(if $(FC_FORCE),$(FC_FORCE),ftn) ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
 	$$FC -g -hcaf -O0 $$NATIVE_FLAGS $(FLAGS) \
 	    native-multi-image.F90 -o native-multi-image-cce
@@ -47,7 +48,7 @@ cce:
 
 intel:
 	@set -x ; \
-	export FC=ifx ; \
+	export FC=$(if $(FC_FORCE),$(FC_FORCE),ifx) ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
 	$$FC -g -coarray -O0 $$NATIVE_FLAGS $(FLAGS) \
 	    native-multi-image.F90 -o native-multi-image-intel
