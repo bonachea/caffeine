@@ -32,20 +32,37 @@ subroutine write_flags
      call yes("NOTIFY_TYPE")
 
      call set("-DIGNORE_FAILURES=8") ! type checks for event, notify, lock, team
-#  elif __flang_major__ >= 23
+#  elif __flang_major__ == 23
      call set("-fcoarray")
 
-     call no("ALLOC_COARRAY_CLEANUP")
-     call no("ALLOC_COARRAY_DEALLOC")
      call no("COARRAY_INIT")
      call no("COARRAY_LOCAL_ACCESS")
      call no("PUTGET")
+
+     ! issue #214080
+     call no("ALLOC_COARRAY_CLEANUP")
+     call no("ALLOC_COARRAY_DEALLOC")
 
      ! issue #205953
      call no("IMAGE_INDEX_TEAM")
      call no("NUM_IMAGES_TEAM")
      call no("THIS_IMAGE_TEAM")
      call no("TEAM_NUMBER_TEAM")
+
+     call no("EVENT")
+     call  yes("EVENT_TYPE")
+     call no("LOCK")
+     call  yes("LOCK_TYPE")
+     call no("NOTIFY")
+     call  yes("NOTIFY_TYPE")
+
+     call set("-DIGNORE_FAILURES=6") ! type checks for event, notify, lock
+#  elif __flang_major__ >= 24
+     call set("-fcoarray")
+
+     call no("COARRAY_INIT")
+     call no("COARRAY_LOCAL_ACCESS")
+     call no("PUTGET")
 
      call no("EVENT")
      call  yes("EVENT_TYPE")
