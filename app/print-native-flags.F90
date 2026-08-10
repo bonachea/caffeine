@@ -64,10 +64,6 @@ subroutine write_flags
      call no("COARRAY_LOCAL_ACCESS")
      call no("PUTGET")
 
-     ! issue #214080
-     call no("ALLOC_COARRAY_CLEANUP")
-     call no("ALLOC_COARRAY_DEALLOC")
-
      call no("EVENT")
      call  yes("EVENT_TYPE")
      call no("LOCK")
