@@ -31,7 +31,7 @@ subroutine write_flags
      call yes("LOCK_TYPE")
      call yes("NOTIFY_TYPE")
 
-     call set("-DIGNORE_FAILURES=8") ! type checks for event, notify, lock, team
+     call set("-DIGNORE_FAILURES=2") ! type checks for event, notify, lock, team
 #  elif __flang_major__ == 23
      call set("-fcoarray")
 
