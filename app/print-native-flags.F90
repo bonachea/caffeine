@@ -39,16 +39,6 @@ subroutine write_flags
      call no("COARRAY_LOCAL_ACCESS")
      call no("PUTGET")
 
-     ! issue #214080
-     call no("ALLOC_COARRAY_CLEANUP")
-     call no("ALLOC_COARRAY_DEALLOC")
-
-     ! issue #205953
-     call no("IMAGE_INDEX_TEAM")
-     call no("NUM_IMAGES_TEAM")
-     call no("THIS_IMAGE_TEAM")
-     call no("TEAM_NUMBER_TEAM")
-
      call no("EVENT")
      call  yes("EVENT_TYPE")
      call no("LOCK")
