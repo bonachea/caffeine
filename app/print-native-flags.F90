@@ -92,8 +92,8 @@ subroutine write_flags
      call no("TEAM_NUMBER")
 
      call no("ALLOC_COARRAY_CLEANUP")
-     call no("COARRAY_QUERY")
-     call  yes("COBOUND")
+     call no("IMAGE_INDEX")
+     call no("THIS_IMAGE_COARRAY")
      call no("PUTGET_INTRINSIC_ARRAY_CONTIG")
 
      call no("EVENT")
