@@ -108,14 +108,14 @@ jobs:
           - os: ubuntu-24.04
             compiler: flang
             version: latest
-            #container: snowstep/llvm:ubuntu-24.04-latest
-            container: snowstep/llvm:debian-12-latest
+            container: snowstep/llvm:ubuntu-24.04-latest
+            #container: snowstep/llvm:debian-12-latest
 
           # https://hub.docker.com/r/phhargrove/llvm-flang/tags
           - os: ubuntu-24.04
             compiler: flang
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc2-latest
+            container: phhargrove/llvm-flang:23.1.0_rc3-latest
           - os: ubuntu-24.04
             compiler: flang
             version: 22
@@ -141,15 +141,11 @@ jobs:
             compiler: lfortran
             version: latest
             container: ghcr.io/lfortran/lfortran:latest
-            native_multi_image: true
-            FFLAGS: --coarray=true -DHAVE_TEAM=0 -DHAVE_TEAM_TYPE -DHAVE_FORM_TEAM -DHAVE_SYNC_TEAM -DHAVE_COARRAY -DHAVE_ALLOC_COARRAY=0 -DHAVE_COARRAY_QUERY=0 -DHAVE_COBOUND -DHAVE_EVENT=0 -DHAVE_LOCK_TYPE=0 -DHAVE_NOTIFY_TYPE=0 
 
           - os: ubuntu-22.04
             compiler: lfortran
             version: 0.64
             container: ghcr.io/lfortran/lfortran:v0.64.0
-            native_multi_image: true
-            FFLAGS: --coarray=true -DHAVE_TEAM=0 -DHAVE_COARRAY -DHAVE_ALLOC_COARRAY=0 -DHAVE_COARRAY_QUERY=0 -DHAVE_EVENT=0 -DHAVE_LOCK_TYPE=0 -DHAVE_NOTIFY_TYPE=0 
 
           - os: ubuntu-22.04
             compiler: lfortran
@@ -233,13 +229,13 @@ jobs:
             compiler: flang
             version: 23
             network: udp
-            container: phhargrove/llvm-flang:23.1.0_rc2-latest
+            container: phhargrove/llvm-flang:23.1.0_rc3-latest
           - os: ubuntu-24.04
             compiler: flang
             version: latest
             network: udp
-            #container: snowstep/llvm:ubuntu-24.04-latest
-            container: snowstep/llvm:debian-12-latest
+            container: snowstep/llvm:ubuntu-24.04-latest
+            #container: snowstep/llvm:debian-12-latest
 
     container:
       image: ${{ matrix.container }}
@@ -247,9 +243,6 @@ jobs:
 
     env:
       COMPILER_VERSION: ${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }}
-      NATIVE_MULTI_IMAGE: ${{ matrix.native_multi_image || 
-          ( matrix.compiler == 'flang' && ( ! matrix.version || matrix.version >= 22 || matrix.version == 'latest' ) ) 
-        }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
       PREFIX: install
@@ -359,15 +352,6 @@ jobs:
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
         fi
-        if [ "${NATIVE_MULTI_IMAGE}" == true ] ; then
-          if [[ $COMPILER_VERSION == latest ]] ; then
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_COARRAY -DHAVE_ALLOC_COARRAY=0 -DHAVE_COARRAY_INIT=0 -DHAVE_COARRAY_LOCAL_ACCESS=0 -DHAVE_PUTGET=0 -DHAVE_EVENT=0 -DHAVE_EVENT_TYPE -DIGNORE_FAILURES=6" >> "$GITHUB_ENV"
-          elif [[ $COMPILER_VERSION == 23 ]] ; then
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_COARRAY -DHAVE_ALLOC_COARRAY=0 -DHAVE_COARRAY_INIT=0 -DHAVE_COARRAY_LOCAL_ACCESS=0 -DHAVE_PUTGET=0 -DHAVE_EVENT=0 -DHAVE_EVENT_TYPE -DIGNORE_FAILURES=6" >> "$GITHUB_ENV"
-          else #  $COMPILER_VERSION == 22
-            echo "FFLAGS=$FFLAGS -fcoarray -DHAVE_EVENT_TYPE -DIGNORE_FAILURES=8" >> "$GITHUB_ENV"
-          fi
-        fi
 
     - name: Setup lfortran dependencies and variables
       if: ${{ matrix.compiler == 'lfortran' }}
@@ -398,12 +382,6 @@ jobs:
         # disable shared-memory bypass with network=udp to simulate multi-node runs
         if test "${{ matrix.network }}" = "udp"; then
           echo "GASNET_SUPERNODE_MAXSIZE=1" >> "$GITHUB_ENV"
-        fi
-        # Turn some knobs for a compiler that natively uses PRIF for multi-image features:
-        # HAVE_MULTI_IMAGE : controls app/native-multi-image and prif_init testing
-        # HAVE_MULTI_IMAGE_SUPPORT : force-enable Julienne's multi-image support
-        if [ "${NATIVE_MULTI_IMAGE}" == true ] ; then
-          echo "FFLAGS=$FFLAGS -DHAVE_MULTI_IMAGE -DHAVE_MULTI_IMAGE_SUPPORT" >> "$GITHUB_ENV"
         fi
 
     - name: Set Workflow Dispatch Environment
@@ -451,6 +429,9 @@ jobs:
             eval echo "$var=\$$var"; done
         ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --verbose \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
+        if ! grep -q 'NATIVEFLAGS=""' run-fpm.sh ; then
+          echo "NATIVE_MULTI_IMAGE=true" >> "$GITHUB_ENV"
+        fi
 
     ##########################################################################
     # Caffeine Testing
@@ -464,14 +445,20 @@ jobs:
         echo CAF_IMAGES=${CAF_IMAGES}
         ./run-fpm.sh run --verbose --example hello
 
-    - name: Run native multi-image test
+    - name: Run native multi-image test (with Caffeine)
       if: ${{ env.NATIVE_MULTI_IMAGE == 'true' }}
       run: |
         ./run-fpm.sh run --verbose 2>&1 | tee output
+          test ${PIPESTATUS[0]} = 0
         if [[ "${{ matrix.network }}" != "udp" ]] ; then
           # ignore intermittent INEXACT exceptions from AMUDP at exit time
           ! grep -q "IEEE arithmetic exceptions signaled" output
         fi
+
+    - name: Run native multi-image test (stand-alone)
+      if: ${{ matrix.compiler == 'gfortran' && matrix.version >= '16' }}
+      run: |
+        make -C app gcc GFORTRAN=$FC
 
     - name: Run unit tests
       run: |
