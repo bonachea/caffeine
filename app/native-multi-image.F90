@@ -174,6 +174,7 @@
 #  define CPP_STRINGIFY_SOURCE(x) #x
 # endif
 #endif
+
 #define STATUS(msg_expr) \
   BLOCK ; \
     character(len=:), allocatable :: stat_msg__ ; \

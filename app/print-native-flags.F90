@@ -105,7 +105,7 @@ subroutine write_flags
    if (.not. stand_alone) return
 #  if __NAG_COMPILER_RELEASE >= 72
      ! __NAG_COMPILER_BUILD contains build number
-     !call set("-coarray=cosmp")
+     !call set("-coarray=cosmp")     ! set in Makefile
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
      call no("NOTIFY") ! missing F2023 feature
@@ -113,7 +113,7 @@ subroutine write_flags
 #elif __GFORTRAN__
    if (.not. stand_alone) return
 #  if __GNUC__ >= 16
-     !call set("-fcoarray=lib")
+     !call set("-fcoarray=lib")   ! set in Makefile
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
      call no("NOTIFY") ! missing F2023 feature
@@ -126,7 +126,7 @@ subroutine write_flags
    if (.not. stand_alone) return
    ! More details in _RELEASE_MINOR, _RELEASE_PATCHLEVEL, _RELEASE_STRING
 #  if _RELEASE_MAJOR >= 18
-     !call set("-hcaf")
+     !call set("-hcaf")   ! set in Makefile
 #    if _RELEASE_MAJOR < 19
        call no("NOTIFY") ! missing F2023 feature
 #    endif
@@ -137,7 +137,7 @@ subroutine write_flags
 #elif __INTEL_COMPILER
    if (.not. stand_alone) return
 #  if __INTEL_COMPILER >= 20250302
-     !call set("-coarray")
+     !call set("-coarray")   ! set in Makefile
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
      call no("NOTIFY") ! missing F2023 feature
