@@ -600,6 +600,7 @@ elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
   "\$@"
 elif echo "set-native" | grep -w -q -e "\$fpm_sub_cmd" ; then
   set -e
+  mkdir -p build
   cmd="\$FC \$RAWFLAGS app/print-native-flags.F90 -o build/print-native-flags $APPEND_LDFLAGS"
   eval \$cmd || (set -x ; eval \$cmd)
   NATIVEFLAGS="\`build/print-native-flags\`"
