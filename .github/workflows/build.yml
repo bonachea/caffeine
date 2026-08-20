@@ -112,6 +112,11 @@ jobs:
             #container: snowstep/llvm:debian-12-latest
 
           # https://hub.docker.com/r/phhargrove/llvm-flang/tags
+          - os: ubuntu-26.04-arm
+            compiler: flang
+            version: 23
+            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
+
           - os: ubuntu-24.04
             compiler: flang
             version: 23
@@ -225,6 +230,11 @@ jobs:
             version: 22
             network: udp
             container: phhargrove/llvm-flang:22.1.0-latest
+          - os: ubuntu-26.04-arm
+            compiler: flang
+            network: udp
+            version: 23
+            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
           - os: ubuntu-24.04
             compiler: flang
             version: 23
