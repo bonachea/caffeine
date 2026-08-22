@@ -508,9 +508,6 @@ program native_multi_image
 
 # if HAVE_TEAM_TYPE
       CHECK_TYPE_COMPLIANCE(TEAM_TYPE, default_team, .true., 0)
-#   if __LFORTRAN__
-      if (.false.) SYNC TEAM(default_team) ! workaround LFortran issue #12538
-#   endif
 # endif
 # if HAVE_GET_TEAM
     STATUS("Testing GET_TEAM...")
@@ -880,9 +877,6 @@ program native_multi_image
           fail_count = fail_count + 1
         end if
         STATUS("  Default init of " // type_name // " ==> " // diag)
-#       if __LFORTRAN__
-          if (.false.) SYNC TEAM(team_var) ! workaround LFortran issue #12538
-#       endif          
 #     endif
       else
 #     if TYPES_IMPORT_PRIF
