@@ -12,6 +12,7 @@ USAGE:
 
  --help             Display this help text
  --prefix=PREFIX    Install library into 'PREFIX' directory
+                    Default prefix='\$HOME/.local/bin'
  --network=<NET>    Build Caffeine to target given GASNet network conduit. 
                     <NET> should be one of:
                       smp: single-node shared-memory conduit (default)
@@ -20,7 +21,6 @@ USAGE:
                       ofi: OpenFabrics Interfaces
                       ucx: Unified Communication X
  --prereqs          Display a list of prerequisite software.
-                    Default prefix='\$HOME/.local/bin'
  --verbose          Show verbose build commands
  --yes              Assume (yes) to all prompts for non-interactive build
  --enable-threads   Build a thread-safe Caffeine library and link to
@@ -33,7 +33,6 @@ Some influential environment variables:
   FFLAGS      Fortran compiler flags
   CC          C compiler command
   CFLAGS      C compiler flags
-  CPP         C preprocessor
   CPPFLAGS    C preprocessor flags, e.g. -I<include dir> if you have
               headers in a nonstandard directory <include dir>
   LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
@@ -48,6 +47,11 @@ EOF
 }
 
 GASNET_VERSION="stable"
+GASNET_SOURCE_URL="https://github.com/BerkeleyLab/gasnet/releases/download/gex-$GASNET_VERSION/GASNet-$GASNET_VERSION.tar.gz"
+ASSERT_GIT=$(awk -F'"' '/^assert =/ {print $2}' manifest/fpm.toml.template)
+ASSERT_VERSION=$(awk -F'"' '/^assert =/ {print $4}' manifest/fpm.toml.template)
+JULIENNE_GIT=$(awk -F'"' '/^julienne =/ {print $2}' manifest/fpm.toml.template)
+JULIENNE_VERSION=$(awk -F'"' '/^julienne =/ {print $4}' manifest/fpm.toml.template)
 VERBOSE=""
 GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
 GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
@@ -58,18 +62,27 @@ APPEND_LDFLAGS=""
 list_prerequisites()
 {
     cat << EOF
-Caffeine and this installer were developed with the following prerequisites.
+Caffeine's build system has the following system software prerequisites.
 If any are missing and if permission is granted, the installer will install
 the latest versions using Homebrew:
 
-  LLVM flang
-  GASNet-EX $GASNET_VERSION
+  LLVM flang (or another supported Fortran compiler)
   fpm
-  git (used by fpm to clone dependencies)
+  git (used to clone dependencies)
   curl
   pkg-config
   realpath (Homebrew coreutils)
   GNU Make (Homebrew coreutils)
+
+The installer will also download and build the following library dependencies,
+which are installed along with the Caffeine library to the install prefix:
+
+  GASNet-EX $GASNET_VERSION
+    - $GASNET_SOURCE_URL
+  Assert $ASSERT_VERSION 
+    - $ASSERT_GIT
+  Julienne $JULIENNE_VERSION (optional, only used for unit tests)
+    - $JULIENNE_GIT
 
 EOF
 }
@@ -404,7 +417,6 @@ if ! $PKG_CONFIG $pkg ; then
   exit_if_user_declines "GASNet-EX"
 
   GASNET_TAR_FILE="$DEPENDENCIES_DIR/GASNet-$GASNET_VERSION.tar.gz"
-  GASNET_SOURCE_URL="https://github.com/BerkeleyLab/gasnet/releases/download/gex-$GASNET_VERSION/GASNet-$GASNET_VERSION.tar.gz"
   if [ ! -d $DEPENDENCIES_DIR ]; then
     mkdir -pv $DEPENDENCIES_DIR
   fi
