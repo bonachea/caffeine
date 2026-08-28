@@ -153,8 +153,6 @@ subroutine write_flags
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
      call no("NOTIFY") ! missing F2023 feature
-     call no("FORM_TEAM") ! runtime errors on FORM TEAM
-     call no("CHANGE_TEAM") ! runtime errors on FORM TEAM
      call no("TEAM_TYPE") ! avoid runtime errors from CHECK_TYPE_COMPLIANCE
      call set("-DIGNORE_FAILURES=4") ! CO_MIN/CO_MAX(character) get the wrong answer at runtime (no change)
 #  endif

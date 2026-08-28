@@ -362,9 +362,12 @@ program native_multi_image
 
   integer :: me, ni, peer, i, ia(3)
   character(len=10) :: c, ca(3)
-# if HAVE_TEAM
+# if HAVE_FORM_TEAM
   integer :: team_id
   type(TEAM_TYPE) :: subteam
+# endif
+# if HAVE_GET_TEAM
+  type(TEAM_TYPE) :: tmpteam
 # endif
 # if HAVE_TEAM_TYPE
   type(TEAM_TYPE) :: default_team
@@ -511,9 +514,18 @@ program native_multi_image
 # endif
 # if HAVE_GET_TEAM
     STATUS("Testing GET_TEAM...")
-    subteam = GET_TEAM(CURRENT_TEAM)
-    subteam = GET_TEAM(INITIAL_TEAM)
-    subteam = GET_TEAM()
+    tmpteam = GET_TEAM(CURRENT_TEAM)
+#   if HAVE_THIS_IMAGE_TEAM
+      CHECK_VALI(THIS_IMAGE(tmpteam),THIS_IMAGE())
+#   endif
+    tmpteam = GET_TEAM(INITIAL_TEAM)
+#   if HAVE_NUM_IMAGES_TEAM
+      CHECK_VALI(NUM_IMAGES(tmpteam),NUM_IMAGES())
+#   endif
+    tmpteam = GET_TEAM()
+#   if HAVE_TEAM_NUMBER_TEAM
+      CHECK_VALI(TEAM_NUMBER(tmpteam),-1)
+#   endif
 # endif
 # if HAVE_TEAM_NUMBER
     STATUS("Testing TEAM_NUMBER...")
