@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Set default configuration variables
         id: vars
-        run: echo "BREW_FLANG_VERSION=22" >> $GITHUB_OUTPUT
+        run: echo "BREW_FLANG_VERSION=23" >> $GITHUB_OUTPUT
 
   build:
     name: ${{ matrix.compiler }}-${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }} ${{ ( matrix.network != 'smp' && matrix.network ) || '' }} (${{ matrix.os }}) ${{ matrix.label }}
@@ -115,12 +115,12 @@ jobs:
           - os: ubuntu-24.04-arm
             compiler: flang
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
+            container: phhargrove/llvm-flang:23.1.0-latest-arm64
 
           - os: ubuntu-24.04
             compiler: flang
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest
+            container: phhargrove/llvm-flang:23.1.0-latest
           - os: ubuntu-24.04
             compiler: flang
             version: 22
@@ -234,12 +234,12 @@ jobs:
             compiler: flang
             network: udp
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
+            container: phhargrove/llvm-flang:23.1.0-latest-arm64
           - os: ubuntu-24.04
             compiler: flang
             version: 23
             network: udp
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest
+            container: phhargrove/llvm-flang:23.1.0-latest
           - os: ubuntu-24.04
             compiler: flang
             version: latest
