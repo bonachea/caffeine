@@ -65,14 +65,10 @@ subroutine write_flags
 #  endif
 #elif __LFORTRAN__
 #  if   __LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ <= 63
-   ! no multi-image support
-#  elif __LFORTRAN_MAJOR__ > 0 ||  \
-        (__LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ >= 64 )
-   if (INDEX(COMPILER_VERSION(), 'version 0.64') /= 0 .and. &
-       INDEX(COMPILER_VERSION(), '-g') == 0) then 
-     ! LFortran release 0.64
+   ! no multi-image support before 0.64.0
+#  else
      call set("--coarray=true")
-
+#    if  __LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ == 64
      call no("TEAM")
 
      call no("ALLOC_COARRAY")
@@ -82,10 +78,25 @@ subroutine write_flags
      call no("EVENT")
      call no("LOCK")
      call no("NOTIFY")
+#    else
+   if (INDEX(COMPILER_VERSION(), 'version 0.65') /= 0 .and. &
+       INDEX(COMPILER_VERSION(), '-g') == 0) then 
+     ! LFortran release 0.65
+     call no("GET_TEAM")
+     call no("NUM_IMAGES_TEAM")
+     call no("THIS_IMAGE_TEAM")
+     call no("TEAM_NUMBER")
+
+     call no("ALLOC_COARRAY_CLEANUP")
+     call no("IMAGE_INDEX")
+     call no("THIS_IMAGE_COARRAY")
+     call no("PUTGET_INTRINSIC_ARRAY_CONTIG")
+
+     call no("EVENT")
+     call no("LOCK")
+     call no("NOTIFY")
    else 
      ! LFortran git snapshot or newer, assume latest we know about
-     call set("--coarray=true")
-
      call no("GET_TEAM")
      call no("NUM_IMAGES_TEAM")
      call no("THIS_IMAGE_TEAM")
@@ -100,6 +111,7 @@ subroutine write_flags
      call no("LOCK")
      call no("NOTIFY")
    end if
+#  endif
 #  endif
 #elif NAGFOR
    if (.not. stand_alone) return
@@ -141,8 +153,6 @@ subroutine write_flags
      call set("-DTYPES_PRIF_COMPLIANT=0")
 
      call no("NOTIFY") ! missing F2023 feature
-     call no("FORM_TEAM") ! runtime errors on FORM TEAM
-     call no("CHANGE_TEAM") ! runtime errors on FORM TEAM
      call no("TEAM_TYPE") ! avoid runtime errors from CHECK_TYPE_COMPLIANCE
      call set("-DIGNORE_FAILURES=4") ! CO_MIN/CO_MAX(character) get the wrong answer at runtime (no change)
 #  endif

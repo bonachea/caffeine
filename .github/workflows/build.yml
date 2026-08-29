@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Set default configuration variables
         id: vars
-        run: echo "BREW_FLANG_VERSION=22" >> $GITHUB_OUTPUT
+        run: echo "BREW_FLANG_VERSION=23" >> $GITHUB_OUTPUT
 
   build:
     name: ${{ matrix.compiler }}-${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }} ${{ ( matrix.network != 'smp' && matrix.network ) || '' }} (${{ matrix.os }}) ${{ matrix.label }}
@@ -84,15 +84,16 @@ jobs:
           - os: macos-15
             compiler: flang
             brew_via_install: 1
-          - os: macos-15-intel
-            compiler: flang
-            brew_via_install: 1
           - os: macos-26
             compiler: flang
             brew_via_install: 1
-          - os: macos-26-intel
-            compiler: flang
-            brew_via_install: 1
+          # flang 23 bottle missing for Sonoma/x86_64
+          #- os: macos-15-intel
+          #  compiler: flang
+          #  brew_via_install: 1
+          #- os: macos-26-intel
+          #  compiler: flang
+          #  brew_via_install: 1
 
           - os: ubuntu-24.04
             compiler: flang
@@ -115,12 +116,12 @@ jobs:
           - os: ubuntu-24.04-arm
             compiler: flang
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
+            container: phhargrove/llvm-flang:23.1.0-latest-arm64
 
           - os: ubuntu-24.04
             compiler: flang
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest
+            container: phhargrove/llvm-flang:23.1.0-latest
           - os: ubuntu-24.04
             compiler: flang
             version: 22
@@ -146,6 +147,11 @@ jobs:
             compiler: lfortran
             version: latest
             container: ghcr.io/lfortran/lfortran:latest
+
+          - os: ubuntu-22.04
+            compiler: lfortran
+            version: 0.65
+            container: ghcr.io/lfortran/lfortran:v0.65.0
 
           - os: ubuntu-22.04
             compiler: lfortran
@@ -202,13 +208,14 @@ jobs:
             version: 14
             network: udp
 
-          - os: macos-15-intel
-            compiler: flang
-            network: udp
+          # flang 23 bottle missing for Sonoma/x86_64
+          #- os: macos-15-intel
+          #  compiler: flang
+          #  network: udp
+          #- os: macos-26-intel
+          #  compiler: flang
+          #  network: udp
           - os: macos-15
-            compiler: flang
-            network: udp
-          - os: macos-26-intel
             compiler: flang
             network: udp
           - os: macos-26
@@ -234,12 +241,12 @@ jobs:
             compiler: flang
             network: udp
             version: 23
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest-arm64
+            container: phhargrove/llvm-flang:23.1.0-latest-arm64
           - os: ubuntu-24.04
             compiler: flang
             version: 23
             network: udp
-            container: phhargrove/llvm-flang:23.1.0_rc3-latest
+            container: phhargrove/llvm-flang:23.1.0-latest
           - os: ubuntu-24.04
             compiler: flang
             version: latest
@@ -306,6 +313,14 @@ jobs:
       run: |
         # silence Homebrew tap trust warnings:
         (set +e ; brew untap -f aws/tap hashicorp/tap 2>&1 | perl -pe 's/#*.warning./warn: /' ; brew trust azure/bicep )
+        # set some Homebrew knobs to accelerate installation
+        # but only when we are not simulating the user environment brew-via-install workflow
+        if [[ -z "${{ matrix.brew_via_install }}" ]] ; then
+          echo HOMEBREW_NO_ANALYTICS=1 >> "$GITHUB_ENV"
+          echo HOMEBREW_NO_AUTO_UPDATE=1 >> "$GITHUB_ENV"
+          echo HOMEBREW_NO_GITHUB_API=1 >> "$GITHUB_ENV"
+          echo HOMEBREW_NO_INSTALL_CLEANUP=1 >> "$GITHUB_ENV"
+        fi
 
     - name: Install macOS Dependencies
       if: ${{ contains(matrix.os, 'macos') && !matrix.brew_via_install }}
