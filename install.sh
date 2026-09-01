@@ -276,8 +276,6 @@ exit_if_user_declines()
   if [ -n "$answer" -a "$answer" != "y" -a "$answer" != "Y" -a "$answer" != "Yes" -a "$answer" != "YES" -a "$answer" != "yes" ]; then
     echo "Installation declined."
     case ${1:-} in  
-      *GASNet*) 
-        echo "Please ensure the $pkg.pc file is in $PKG_CONFIG_PATH and then rerun './install.sh'." ;;
       *FC*) 
         echo "To use compilers other than Homebrew-installed LLVM flang and clang,"
         echo "please set the FC and CC environment variables and rerun './install.sh'." ;;
@@ -409,24 +407,10 @@ if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   fi
 fi
 
-ask_package_permission()
-{
-  cat << EOF
-
-$1 not found in $2
-
-Press 'Enter' for the square-bracketed default answer:
-EOF
-  printf "Is it ok to download and install $1? [yes] "
-}
-
 pkg="gasnet-$GASNET_CONDUIT-$GASNET_THREADMODE"
 export PKG_CONFIG_PATH
 
 if ! $PKG_CONFIG $pkg ; then
-  ask_package_permission "GASNet-EX" "PKG_CONFIG_PATH"
-  exit_if_user_declines "GASNet-EX"
-
   GASNET_TAR_FILE="$DEPENDENCIES_DIR/GASNet-$GASNET_VERSION.tar.gz"
   if [ ! -d $DEPENDENCIES_DIR ]; then
     mkdir -pv $DEPENDENCIES_DIR
