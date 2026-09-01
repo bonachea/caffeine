@@ -71,8 +71,7 @@ the latest versions using Homebrew:
   git (used to clone dependencies)
   curl
   pkg-config
-  realpath (Homebrew coreutils)
-  GNU Make (Homebrew coreutils)
+  GNU Make
 
 The installer will also download and build the following library dependencies,
 which are installed along with the Caffeine library to the install prefix:
@@ -85,6 +84,25 @@ which are installed along with the Caffeine library to the install prefix:
     - $JULIENNE_GIT
 
 EOF
+}
+
+realpath() {
+    set +x
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+
+    perl -e '
+        use Cwd "abs_path";
+        my $abs = abs_path($ARGV[0]);
+        if (defined $abs) {
+            print "$abs\n";
+        } else {
+            print "ERROR: $ARGV[0] does not exist";
+            exit 1;
+        }
+    ' "$1"
 }
 
 # GASNET_CONFIGURE_ARGS is deliberately inherited from the caller environment
@@ -190,10 +208,6 @@ if command -v pkg-config > /dev/null 2>&1; then
   PKG_CONFIG=`which pkg-config`
 fi
   
-if command -v realpath > /dev/null 2>&1; then
-  REALPATH=`which realpath`
-fi
-
 if command -v make > /dev/null 2>&1; then
   MAKE=`which make`
 fi
@@ -218,7 +232,7 @@ ask_permission_to_use_homebrew()
   cat << EOF
 
 Either one or more of the environment variables FC and CC are unset or
-one or more of the following packages are not in the PATH: pkg-config, realpath, make, fpm.
+one or more of the following packages are not in the PATH: pkg-config, make, fpm.
 If you grant permission to install prerequisites, you will be prompted before each installation.
 
 Press 'Enter' to choose the square-bracketed default answer:
@@ -282,7 +296,7 @@ if [ ! -d $DEPENDENCIES_DIR ]; then
   mkdir -p $DEPENDENCIES_DIR
 fi
 
-if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${REALPATH:+x} ] || [ -z ${MAKE:+x} ] || [ -z ${FPM:+x} ] ; then
+if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${MAKE:+x} ] || [ -z ${FPM:+x} ] ; then
 
   ask_permission_to_use_homebrew 
   exit_if_user_declines "brew"
@@ -343,11 +357,10 @@ EOF
     done
   fi
 
-  if [ -z ${REALPATH:+x} ] || [ -z ${MAKE:+x} ] ; then
-    ask_permission_to_install_homebrew_package "'realpath' and 'make'" "coreutils"
-    exit_if_user_declines "realpath and make"
+  if [ -z ${MAKE:+x} ] ; then
+    ask_permission_to_install_homebrew_package "'make'" "coreutils"
+    exit_if_user_declines "make"
     $BREW install coreutils
-    REALPATH=`which realpath`
     MAKE=`which make`
   fi
 
@@ -368,7 +381,7 @@ fi
 
 PREFIX=${PREFIX:-"${HOME}/.local"}
 mkdir -p "$PREFIX"
-PREFIX=`$REALPATH "$PREFIX"`
+PREFIX=$(realpath "$PREFIX")
 echo "PREFIX=$PREFIX"
 
 if [ -z ${PKG_CONFIG_PATH:+x} ]; then
@@ -378,12 +391,12 @@ else
 fi
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 
-FPM_FC="$($REALPATH $(command -v $FC))"
+FPM_FC="$(realpath $(command -v $FC))"
 if [[ $FPM_FC == *flang* ]]; then
   # issue #358: pattern must only match the end, to avoid false positives on directory components
   FPM_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
 fi
-FPM_CC="$($REALPATH $(command -v $CC))"
+FPM_CC="$(realpath $(command -v $CC))"
 
 if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   # fixups necessitated by using Brew flang:
@@ -493,7 +506,7 @@ esac
 # Strip compiler flags
 # Warning: This assumes the full path doesn't contain any spaces!
 GASNET_CC_STRIPPED="$(echo $GASNET_CC | awk '{print $1};')"
-GASNET_CC_REAL="$($REALPATH $GASNET_CC_STRIPPED)"
+GASNET_CC_REAL="$(realpath $GASNET_CC_STRIPPED)"
 
 if [ "$GASNET_CC_REAL" != "$FPM_CC" ]; then 
   echo "GASNET_CC=$GASNET_CC_REAL" and  "FPM_CC=$FPM_CC don't match"
@@ -579,7 +592,7 @@ esac
 
 RUN_FPM_SH="run-fpm.sh"
 cat << EOF > $RUN_FPM_SH
-#!/bin/sh
+#!/bin/bash
 #-- DO NOT EDIT -- created by caffeine/install.sh
 FPM="${FPM}"
 FC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_FC`"
@@ -589,7 +602,7 @@ RAWFLAGS="$compiler_flag"
 FFLAGS="\$NATIVEFLAGS \$RAWFLAGS"
 CFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CFLAGS`"
 LDFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_LDFLAGS`"
-FPM_DRIVER=\${FPM_DRIVER:-\`realpath \$0\`}
+FPM_DRIVER=\${FPM_DRIVER:-\$([[ "\$0" == /* ]] && echo "\$0" || echo "\$PWD/\$0")}
 export FPM_DRIVER
 fpm_sub_cmd=\$1; shift
 if echo "--help -help --version -version --list -list new update list clean publish" | grep -w -q -e "\$fpm_sub_cmd" ; then
