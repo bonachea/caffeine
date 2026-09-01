@@ -498,6 +498,13 @@ jobs:
           find $RDIR $BDIR /usr/lib/ -name '*flang_rt*' -exec ls -al {} \; | sort | uniq
         fi
 
+    - name: Test install.sh outputs
+      run: |
+        ./install.sh --help 2>&1 | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "fortran@lbl.gov" output
+        ./install.sh --prereqs 2>&1 | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "GASNet-EX" output
+
     - name: Build Caffeine (install.sh)
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do
