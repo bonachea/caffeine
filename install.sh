@@ -23,6 +23,8 @@ USAGE:
  --prereqs          Display a list of prerequisite software.
  --verbose          Show verbose build commands
  --yes              Assume (yes) to all prompts for non-interactive build
+ --enable-debug     Build Caffeine and GASNet in LOW-PERFORMANCE debug mode,
+                    disabling optimization and enabling assertions to help find defects.
  --enable-threads   Build a thread-safe Caffeine library and link to
                     thread-safe GASNet, for use in threaded do-concurrent.
 
@@ -55,6 +57,7 @@ JULIENNE_VERSION=$(awk -F'"' '/^julienne =/ {print $4}' manifest/fpm.toml.templa
 VERBOSE=""
 GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
 GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
+GASNET_CODEMODE="${GASNET_CODEMODE:-opt}"
 YES=false
 APPEND_CFLAGS=""
 APPEND_LDFLAGS=""
@@ -108,6 +111,15 @@ realpath() {
 # GASNET_CONFIGURE_ARGS is deliberately inherited from the caller environment
 GASNET_CONFIGURE_ARGS=${GASNET_CONFIGURE_ARGS:=}
 
+append_gasnet_configure_arg() {
+  if [[ -z "$GASNET_CONFIGURE_ARGS" ]] ; then
+    GASNET_CONFIGURE_ARGS="\"$1\""
+  else
+    # Quoting is believed sufficient for embedded whitespace but not quotes
+    GASNET_CONFIGURE_ARGS+=" \"${1//\"/\\\"}\""
+  fi
+}
+
 while [ "$1" != "" ]; do
     orig_arg="$1"
     PARAM=$(echo "$1" | awk -F= '{print $1}')
@@ -144,14 +156,26 @@ while [ "$1" != "" ]; do
         --enable-threads)  GASNET_THREADMODE=par ;;
         --disable-threads) GASNET_THREADMODE=seq ;;
 
-        *)
-            # We pass the unmodified argument to GASNet configure
-            # Quoting is believed sufficient for embedded whitespace but not quotes
-            GASNET_CONFIGURE_ARGS+="${GASNET_CONFIGURE_ARGS+ }\"${orig_arg//\"/\\\"}\""
+        --enable-debug)  GASNET_CODEMODE=debug ; append_gasnet_configure_arg "$orig_arg" ;;
+        --disable-debug) GASNET_CODEMODE=opt ;   append_gasnet_configure_arg "$orig_arg" ;;
+
+        *) # Pass unrecognized args unmodified to GASNet configure
+            append_gasnet_configure_arg "$orig_arg"
             ;;
     esac
     shift
 done
+
+if [[ -n "$VERBOSE" ]] ; then
+( set +x
+  echo Command-line arguments:
+  echo PREFIX=$PREFIX
+  echo GASNET_CONDUIT=$GASNET_CONDUIT
+  echo GASNET_CONFIGURE_ARGS=$GASNET_CONFIGURE_ARGS
+  echo GASNET_THREADMODE=$GASNET_THREADMODE
+  echo GASNET_CODEMODE=$GASNET_CODEMODE
+)
+fi
 
 # Early check for pre-installed Homebrew
 BREW="${BREW:-brew}"
@@ -523,25 +547,39 @@ exit_if_pkg_config_pc_file_missing "caffeine"
 
 user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
 
+# compiler-specific flag defaults
+compiler_flag="-g"
+compiler_flag_debug="-O0"
+compiler_flag_opt="-O3"
 compiler_version=$($FPM_FC --version)
 if [[ $compiler_version =~ 'flang' ]]; then
-  compiler_flag="-g -O3"
+  : # use defaults
 elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
-  compiler_flag="-g -O3 -ffree-line-length-0 -Wno-unused-dummy-argument"
+  compiler_flag="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
 elif [[ $compiler_version =~ 'LFortran' ]]; then
-  compiler_flag="-O3 --cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
+  compiler_flag="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
+  compiler_flag_debug="" # LFortran -g not always available and leads to bizarre errors when it's not
 else # unknown compiler
-  compiler_flag="-g -O2"
+  compiler_flag_opt=-O2
   echo "WARNING: Failed to detect a recognized Fortran compiler"
 fi
+if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+  compiler_flag="$compiler_flag_debug $compiler_flag"
+else
+  compiler_flag="$compiler_flag_opt $compiler_flag"
+fi
+
 # enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
 compiler_flag+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
 # enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
 compiler_flag+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
 
 if ! [[ "$user_compiler_flags " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
-  # default to enabling assertions, unless the command line sets a relevant flag
-  compiler_flag+=" -DASSERTIONS"
+  # assertions not explicitly enabled or disabled on the command-line
+  # default assertions based on codemode (--enable-debug)
+  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+    compiler_flag+=" -DASSERTIONS"
+  fi
 fi
 
 if [[ $GASNET_THREADMODE == "par" ]] ; then
@@ -651,6 +689,7 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   grep -e link \$SRCDIR/fpm.toml
   echo GASNET=\$GASNETDIR
   echo GASNET_CONDUIT=$GASNET_CONDUIT
+  echo GASNET_CODEMODE=$GASNET_CODEMODE
   echo GASNET_THREADMODE=$GASNET_THREADMODE
   if test -r "\$GASNETCONFIG"; then
     grep -e GASNETI_BUILD_ID -e GASNETI_CONFIGURE_ARGS \$GASNETCONFIG | cut -d' ' -f2-
