@@ -181,6 +181,20 @@ jobs:
             version: 0.63
             container: phhargrove/lfortran:0.63.0-1
 
+        # --- OPT coverage ---
+          - os: ubuntu-24.04
+            compiler: flang
+            version: 23
+            label: OPT
+            CONFIGURE_ARGS: --disable-debug
+            container: phhargrove/llvm-flang:23.1.0-latest
+          - os: ubuntu-22.04
+            compiler: lfortran
+            version: 0.65
+            label: OPT
+            CONFIGURE_ARGS: --disable-debug
+            container: ghcr.io/lfortran/lfortran:v0.65.0
+
         # --- PRIF-old coverage ---
           - os: ubuntu-24.04
             compiler: flang
@@ -280,10 +294,9 @@ jobs:
       COMPILER_VERSION: ${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
-      PREFIX: install
       NETWORK_ARG: ${{ matrix.network && format('--network={0}',matrix.network) || '' }}
       CURL_OPTIONS: -L --retry 10 --retry-all-errors --fail 
-      GASNET_CONFIGURE_ARGS: --enable-rpath --enable-debug
+      CONFIGURE_ARGS: --prefix=install --enable-rpath --enable-debug --verbose ${{ matrix.CONFIGURE_ARGS }}
       GASNET_SPAWN_VERBOSE: 1
       GASNET_SPAWNFN: L
       GASNET_MASTERIP: 127.0.0.1
@@ -416,7 +429,7 @@ jobs:
         echo "CXX=g++-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         # XCode 26 / gfortran bug workaround
         if [[ ${{ matrix.os }} =~ macos-26 ]] ; then
-          echo "GASNET_CONFIGURE_ARGS=$GASNET_CONFIGURE_ARGS --enable-force-posix-realtime" >> "$GITHUB_ENV"
+          echo "CONFIGURE_ARGS=$CONFIGURE_ARGS --enable-force-posix-realtime" >> "$GITHUB_ENV"
         fi
 
     - name: Set flang variables
@@ -509,7 +522,7 @@ jobs:
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do
             eval echo "$var=\$$var"; done
-        ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --verbose \
+        ./install.sh ${CONFIGURE_ARGS} ${NETWORK_ARG} \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
         if ! grep -q 'NATIVEFLAGS=""' run-fpm.sh ; then
           echo "NATIVE_MULTI_IMAGE=true" >> "$GITHUB_ENV"
@@ -521,6 +534,8 @@ jobs:
     - name: Version info (run-fpm)
       run: |
         ./run-fpm.sh info
+        ./install/bin/ident ./install/lib/libcaffeine.a | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "CaffeineAssertions" output
 
     - name: Run examples
       run: |
@@ -593,7 +608,7 @@ jobs:
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do
             eval echo "$var=\$$var"; done
-        ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --enable-threads --verbose \
+        ./install.sh ${CONFIGURE_ARGS} ${NETWORK_ARG} --enable-threads \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
         ./run-fpm.sh test --verbose -- ${{ inputs.julienne_args }}
 
