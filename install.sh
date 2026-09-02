@@ -639,7 +639,7 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   echo FC=\$FC
   echo CC=\$CC
   echo FFLAGS=\$FFLAGS
-  echo CFLAGS=\$FFLAGS
+  echo CFLAGS=\$CFLAGS
   echo LDFLAGS=\$LDFLAGS
   grep -e link \$SRCDIR/fpm.toml
   echo GASNET=\$GASNETDIR
