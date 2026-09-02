@@ -592,6 +592,16 @@ compiler_flag+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
 # Should come last to allow command-line overrides
 compiler_flag+=" $user_compiler_flags"
 
+# Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
+APPEND_CFLAGS=""
+for opt in $compiler_flag; do
+  case "$opt" in
+    -DASSERTIONS* | -UASSERTIONS* | -DFORCE_PRIF_* | -UFORCE_PRIF_*)
+       APPEND_CFLAGS+=" $opt"
+       ;;
+  esac
+done
+
 case $GASNET_CONDUIT in
   ibv|ofi|ucx) 
     GASNET_RUNNER_ARG="${GASNET_RUNNER_ARG:-$GASNET_PREFIX/bin/gasnetrun_$GASNET_CONDUIT -n \${CAF_IMAGES:-2}}"
@@ -620,7 +630,7 @@ CC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CC`"
 NATIVEFLAGS=""
 RAWFLAGS="$compiler_flag"
 FFLAGS="\$NATIVEFLAGS \$RAWFLAGS"
-CFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CFLAGS`"
+CFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CFLAGS` $APPEND_CFLAGS"
 LDFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_LDFLAGS`"
 FPM_DRIVER=\${FPM_DRIVER:-\$([[ "\$0" == /* ]] && echo "\$0" || echo "\$PWD/\$0")}
 export FPM_DRIVER
