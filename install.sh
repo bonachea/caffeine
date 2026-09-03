@@ -366,13 +366,15 @@ EOF
 
     # Homebrew does not inject clang/clang++ into PATH on macOS
     export PATH="$BREW_PREFIX/opt/llvm/bin:$PATH"
-    CC=`which clang`
-    CXX=`which clang++`
-    FC=`which flang-new`
-    for tool in $CC $CXX $FC ; do
-      if ! command -v $tool > /dev/null 2>&1 ; then
-        echo Failed to detect Homebrew compiler install at $tool
+    CC="clang"
+    CXX="clang++"
+    FC="flang-new"
+    for tool in CC CXX FC ; do
+      if ! command -v ${!tool} > /dev/null 2>&1 ; then
+        eval echo ERROR: Failed to detect Homebrew compiler install at ${!tool}
         exit 1
+      else
+        eval $tool=`which ${!tool}`
       fi
     done
   fi
