@@ -332,9 +332,9 @@ if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${MAKE:
     if [ -p /dev/stdin ] && [ $CI = false ]; then
 	   cat << EOF
 
-Pipe detected.  Installing Homebrew requires sudo privileges, which most likely will
-not work if you are installing non-interactively, e.g., via 'yes | ./install.sh'.
-To install Caffeine non-interactiely, please rerun the Caffeine installer after
+ERROR: Pipe detected.  Installing Homebrew requires sudo privileges,
+which is unlikely to work if you are installing non-interactively.
+To install Caffeine non-interactively, please rerun the Caffeine installer after
 executing the following command to install Homebrew:
 "./$DEPENDENCIES_DIR/install-homebrew.sh"
 EOF
