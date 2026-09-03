@@ -217,7 +217,7 @@ if [ -z ${CXX:+x} ] && [ -n "$CC" ] ; then
   else
     CXX_guess=g++
   fi
-  if [[ $CC =~ (-[0-9]+)$ ]] ; then 
+  if [[ $CC =~ (-[0-9a-z-]+)$ ]] ; then 
     CXX_guess=${CXX_guess}${BASH_REMATCH[0]} 
   fi
   if command -v $CXX_guess > /dev/null 2>&1; then
@@ -412,13 +412,16 @@ else
   PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 fi
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH
 
 FPM_FC="$(realpath $(command -v $FC))"
 if [[ $FPM_FC == *flang* ]]; then
   # issue #358: pattern must only match the end, to avoid false positives on directory components
   FPM_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
 fi
-FPM_CC="$(realpath $(command -v $CC))"
+CC="$(realpath $(command -v $CC))"
+FPM_CC="$CC"
+export FPM_CC
 
 if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   # fixups necessitated by using Brew flang:
@@ -434,7 +437,6 @@ if [ "${BREW_PREFIX:-unset}" != unset ] ; then
 fi
 
 pkg="gasnet-$GASNET_CONDUIT-$GASNET_THREADMODE"
-export PKG_CONFIG_PATH
 
 if ! $PKG_CONFIG $pkg ; then
   GASNET_TAR_FILE="$DEPENDENCIES_DIR/GASNet-$GASNET_VERSION.tar.gz"
@@ -516,8 +518,8 @@ esac
 GASNET_CC_STRIPPED="$(echo $GASNET_CC | awk '{print $1};')"
 GASNET_CC_REAL="$(realpath $GASNET_CC_STRIPPED)"
 
-if [ "$GASNET_CC_REAL" != "$FPM_CC" ]; then 
-  echo "GASNET_CC=$GASNET_CC_REAL" and  "FPM_CC=$FPM_CC don't match"
+if [ "$GASNET_CC_REAL" != "$CC" ]; then 
+  echo "ERROR: C Compiler mismatch: GASNET_CC=$GASNET_CC_REAL and CC=$CC don't match"
   exit 1;
 fi
 
