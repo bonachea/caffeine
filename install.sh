@@ -208,7 +208,9 @@ if command -v pkg-config > /dev/null 2>&1; then
   PKG_CONFIG=`which pkg-config`
 fi
   
-if command -v make > /dev/null 2>&1; then
+if command -v gmake > /dev/null 2>&1; then
+  MAKE=`which gmake`
+elif command -v make > /dev/null 2>&1; then
   MAKE=`which make`
 fi
 
@@ -255,10 +257,6 @@ EOF
 ask_permission_to_install_homebrew_package()
 {
   echo ""
-  if [ ! -z ${2+x} ]; then
-    echo "Homebrew installs $1 collectively in one package named '$2'."
-    echo ""
-  fi
   printf "Is it ok to use Homebrew to install $1? [yes] "
 }
 
@@ -358,10 +356,10 @@ EOF
   fi
 
   if [ -z ${MAKE:+x} ] ; then
-    ask_permission_to_install_homebrew_package "'make'" "coreutils"
+    ask_permission_to_install_homebrew_package "'make'"
     exit_if_user_declines "make"
-    $BREW install coreutils
-    MAKE=`which make`
+    $BREW install make
+    MAKE=`which gmake`
   fi
 
   if [ -z ${PKG_CONFIG:+x} ]; then
