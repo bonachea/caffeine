@@ -449,7 +449,11 @@ jobs:
       if: ${{ matrix.compiler == 'flang' }}
       run: |
         if [ -z "${{ matrix.brew_via_install }}" ] ; then
-          echo "FC=flang-new" >> "$GITHUB_ENV" 
+          if [[ $COMPILER_VERSION -le 19 ]] ; then
+            echo "FC=flang-new" >> "$GITHUB_ENV"
+          else
+            echo "FC=flang" >> "$GITHUB_ENV"
+          fi
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
         fi
