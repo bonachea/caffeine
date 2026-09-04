@@ -250,6 +250,8 @@ jobs:
           - os: macos-15
             compiler: flang
             network: udp
+            label: FPM-0.10
+            FPM_VERSION: 0.10.0
           - os: macos-26
             compiler: flang
             network: udp
@@ -279,6 +281,8 @@ jobs:
             version: 23
             network: udp
             container: phhargrove/llvm-flang:23.1.0-latest
+            label: FPM-0.10
+            FPM_VERSION: 0.10.0
           - os: ubuntu-24.04
             compiler: flang
             version: latest
@@ -294,6 +298,7 @@ jobs:
       COMPILER_VERSION: ${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
+      FPM_VERSION: ${{ matrix.FPM_VERSION || '0.13.0' }}
       NETWORK_ARG: ${{ matrix.network && format('--network={0}',matrix.network) || '' }}
       CURL_OPTIONS: -L --retry 10 --retry-all-errors --fail 
       CONFIGURE_ARGS: --prefix=install --enable-rpath --enable-debug --verbose ${{ matrix.CONFIGURE_ARGS }}
@@ -402,17 +407,25 @@ jobs:
         # Prepend Macports clang to PATH:
         echo "PATH=/opt/local/bin:${PATH}" >> "$GITHUB_ENV"
 
+    - name: Choose FPM
+      if: ${{ !matrix.brew_via_install }}
+      run: |
+        if [[ ${{ runner.arch == 'ARM64' && (runner.os == 'Linux' || env.FPM_VERSION < '0.13.0') }} == true ]] ; then
+          echo "FPM_BUILD=true" >> "$GITHUB_ENV"
+        else
+          echo "FPM_SETUP=true" >> "$GITHUB_ENV"
+        fi
+
     - name: Setup FPM
-      if: ${{ !matrix.brew_via_install && !(runner.os == 'Linux' && runner.arch == 'ARM64') }}
+      if: env.FPM_SETUP
       uses: fortran-lang/setup-fpm@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        fpm-version: latest
+        fpm-version: v${{ env.FPM_VERSION }}
 
     - name: Build FPM
-      if: ${{ !matrix.brew_via_install && runner.os == 'Linux' && runner.arch == 'ARM64' }}
+      if: env.FPM_BUILD
       run: |
-        export FPM_VERSION=0.13.0
         curl --retry 5 -LOsS https://github.com/fortran-lang/fpm/releases/download/v$FPM_VERSION/fpm-$FPM_VERSION.F90
         mkdir fpm-temp
         gfortran-14 -o fpm-temp/fpm fpm-$FPM_VERSION.F90
