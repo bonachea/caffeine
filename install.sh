@@ -59,6 +59,7 @@ JULIENNE_GIT=$(awk -F'"' '/^julienne =/ {print $2}' manifest/fpm.toml.template)
 JULIENNE_VERSION=$(awk -F'"' '/^julienne =/ {print $4}' manifest/fpm.toml.template)
 VERBOSE=""
 YES=false
+USE_FPM=true
 APPEND_CFLAGS=""
 APPEND_LDFLAGS=""
 # these variables deliberately inherited from the caller environment
@@ -193,6 +194,8 @@ while [ "$1" != "" ]; do
         --enable-threads)  GASNET_THREADMODE=par ;;
         --disable-threads) GASNET_THREADMODE=seq ;;
 
+        --disable-fpm) USE_FPM= ;;
+
         --enable-debug)  GASNET_CODEMODE=debug ; append_gasnet_configure_arg "$orig_arg" ;;
         --disable-debug) GASNET_CODEMODE=opt ;   append_gasnet_configure_arg "$orig_arg" ;;
 
@@ -280,6 +283,9 @@ MAKE=$(abswhich ${MAKE:-gmake} silent) # prefer 'gmake' over 'make'
 MAKE=$(abswhich ${MAKE:-make} silent)
 
 FPM=$(abswhich ${FPM:-fpm} silent)
+if [[ -z $FPM && -z $USE_FPM ]] ; then
+  FPM="fpm" # deliberately NOT path-expanded
+fi
 
 # FPM disallows override of the git command, so don't allow it here either
 # Homebrew requires git and curl to operate, so cannot be used to provide them when they are missing
@@ -830,22 +836,28 @@ chmod u+x $RUN_FPM_SH
 
 ./$RUN_FPM_SH set-native
 
-./$RUN_FPM_SH build $VERBOSE || \
-( set +x
-  echo "Defect reporting information:"
-  ./$RUN_FPM_SH info
-  echo
-  echo Oh no, the Caffeine build appears to have failed!
-  echo Please paste the ENTIRE output above into a new issue here:
-  echo "   https://github.com/berkeleylab/caffeine/issues"
+if [[ -n $USE_FPM ]] ; then
+  ./$RUN_FPM_SH build $VERBOSE || \
+  ( set +x
+    echo "Defect reporting information:"
+    ./$RUN_FPM_SH info
+    echo
+    echo Oh no, the Caffeine build appears to have failed!
+    echo Please paste the ENTIRE output above into a new issue here:
+    echo "   https://github.com/berkeleylab/caffeine/issues"
+    exit 1
+  )
+
+  LIBCAFFEINE_SRC=$(./$RUN_FPM_SH install --list 2>/dev/null | grep libcaffeine | cut -d' ' -f2)
+else # Not using FPM to build
+  echo install.sh exiting without building libcaffeine, because fpm was disabled.
   exit 1
-)
+fi
 
 # ---------------------------------------------------------------
 # Caffeine installation
 
 LIBCAFFEINE_DST=libcaffeine-$GASNET_CONDUIT-$GASNET_THREADMODE.a
-LIBCAFFEINE_SRC=$(./$RUN_FPM_SH install --list 2>/dev/null | grep libcaffeine | cut -d' ' -f2)
 
 if [ -z "$LIBCAFFEINE_SRC" ]; then
   echo "ERROR: Failed to detect libcaffeine.a from fpm"
