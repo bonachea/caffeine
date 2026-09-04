@@ -415,9 +415,14 @@ echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 export PKG_CONFIG_PATH
 
 FPM_FC="$(realpath $(command -v $FC))"
-if [[ $FPM_FC == *flang* ]]; then
-  # issue #358: pattern must only match the end, to avoid false positives on directory components
-  FPM_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
+if [[ $(basename $FPM_FC) == *flang* ]]; then
+  # old versions of fpm rely on basename 'flang-new' to recognize LLVM flang,
+  # so look for a corresponding symlink to the same compiler
+  TRY_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
+  TRY_FC=${TRY_FC/%flang/flang-new}
+  if [[ -x $TRY_FC ]] && [[ $(realpath $TRY_FC) == $(realpath $FPM_FC) ]] ; then
+    FPM_FC=$TRY_FC
+  fi
 fi
 CC="$(realpath $(command -v $CC))"
 FPM_CC="$CC"
