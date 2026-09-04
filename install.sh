@@ -74,10 +74,9 @@ the latest versions using Homebrew:
 
   LLVM flang (or another supported Fortran compiler)
   fpm
-  git (used to clone dependencies)
-  curl
   pkg-config
   GNU Make
+  git + curl (used to download library dependencies)
 
 The installer will also download and build the following library dependencies,
 which are installed along with the Caffeine library to the install prefix:
@@ -92,6 +91,35 @@ which are installed along with the Caffeine library to the install prefix:
 EOF
 }
 
+
+# expand to an absolute path for $1, possibly including symlinks
+abspath() {
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+
+    if [[ "$1" == /* ]] ; then
+      echo "$1"
+    else
+      echo "$PWD/$1"
+    fi
+}
+
+# like `which` but always returns an absolute path or empty
+# If $2 is set then failure is suppressed in the exit code
+abswhich() {
+    local cmd_path
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+    cmd_path=$(type -P -- "$1") || return $( [[ -n "${2:-}" ]] )
+
+    echo "$(abspath $cmd_path)"
+}
+
+# expand to the absolute path of $1 with all symlinks and non-canonical elements removed
 realpath() {
     set +x
     if [ -z "$1" ]; then
@@ -179,7 +207,7 @@ fi
 
 # Early check for pre-installed Homebrew
 BREW="${BREW:-brew}"
-if command -v "$BREW" > /dev/null 2>&1; then
+if type -P "$BREW" > /dev/null 2>&1; then
   BREW_PREFIX=`$BREW --prefix || exit 0`
   if [ -z ${BREW_PREFIX:+x} ] || [ ! -d "$BREW_PREFIX" ] ; then
     echo Warning: Failed to detect Homebrew prefix
@@ -188,24 +216,24 @@ if command -v "$BREW" > /dev/null 2>&1; then
 fi
 
 if [ -z ${FC:+x} ] || [ -z ${CC:+x} ]; then
-  if command -v flang > /dev/null 2>&1; then
-    FC=`which flang`
+  if type -P flang > /dev/null 2>&1; then
+    FC=$(abswhich flang)
     echo "Setting FC=$FC"
     if [ -n "$BREW_PREFIX" ] && [[ $FC =~ $BREW_PREFIX ]] ; then
       # We are using Homebrew flang, so prefer Homebrew clang/clang++
       export PATH="$BREW_PREFIX/opt/llvm/bin:$PATH"
     fi
   fi
-  if command -v clang > /dev/null 2>&1; then
-    CC=`which clang`
+  if type -P clang > /dev/null 2>&1; then
+    CC=$(abswhich clang)
     echo "Setting CC=$CC"
   fi
 fi
-if [ -n "$CC" ] && ! command -v "$CC" > /dev/null 2>&1; then
+if [ -n "$CC" ] && ! type -P "$CC" > /dev/null 2>&1; then
   echo "CC=$CC not found. If you don't yet have a C compiler, please leave environment variable CC unset."
   exit 1
 fi
-if [ -n "$FC" ] && ! command -v "$FC" > /dev/null 2>&1; then
+if [ -n "$FC" ] && ! type -P "$FC" > /dev/null 2>&1; then
   echo "FC=$FC not found. If you don't yet have a Fortran compiler, please leave environment variable FC unset."
   exit 1
 fi
@@ -220,35 +248,35 @@ if [ -z ${CXX:+x} ] && [ -n "$CC" ] ; then
   if [[ $CC =~ (-[0-9a-z-]+)$ ]] ; then 
     CXX_guess=${CXX_guess}${BASH_REMATCH[0]} 
   fi
-  if command -v $CXX_guess > /dev/null 2>&1; then
-    CXX=`which $CXX_guess`
+  if type -P $CXX_guess > /dev/null 2>&1; then
+    CXX=$(abswhich $CXX_guess)
     echo "Setting CXX=$CXX"
   fi
 fi
 
 set -u # error on use of undefined variable
 
-if command -v pkg-config > /dev/null 2>&1; then
-  PKG_CONFIG=`which pkg-config`
-fi
+# find dependencies, which we might need to install
+# allow overrides via envvar
+PKG_CONFIG=$(abswhich ${PKG_CONFIG:-pkg-config} silent)
   
-if command -v gmake > /dev/null 2>&1; then
-  MAKE=`which gmake`
-elif command -v make > /dev/null 2>&1; then
-  MAKE=`which make`
-fi
+MAKE=$(abswhich ${MAKE:-gmake} silent) # prefer 'gmake' over 'make'
+MAKE=$(abswhich ${MAKE:-make} silent)
 
-if command -v fpm > /dev/null 2>&1; then
-  FPM=`which fpm`
-fi
+FPM=$(abswhich ${FPM:-fpm} silent)
 
-if ! command -v git > /dev/null 2>&1; then
+# FPM disallows override of the git command, so don't allow it here either
+# Homebrew requires git and curl to operate, so cannot be used to provide them when they are missing
+GIT=$(abswhich git silent)
+if [[ -z ${GIT:-} ]] ; then
   echo "git not found. Building Caffeine requires fpm, which uses git to download dependencies."
   echo "Please install git, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
 
-if ! command -v curl > /dev/null 2>&1; then
+# FPM disallows override of the curl command, so don't allow it here either
+CURL=$(abswhich curl silent)
+if [[ -z ${CURL:-} ]] ; then
   echo "curl not found. Please install curl, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
@@ -321,12 +349,12 @@ if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${MAKE:
   ask_permission_to_use_homebrew 
   exit_if_user_declines "brew"
 
-  if ! command -v $BREW > /dev/null 2>&1; then
+  if ! type -P $BREW > /dev/null 2>&1; then
 
     ask_permission_to_install_homebrew
     exit_if_user_declines "brew"
 
-    curl -L https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o $DEPENDENCIES_DIR/install-homebrew.sh --create-dirs
+    $CURL -L https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o $DEPENDENCIES_DIR/install-homebrew.sh --create-dirs
     chmod u+x $DEPENDENCIES_DIR/install-homebrew.sh
 
     if [ -p /dev/stdin ] && [ $CI = false ]; then
@@ -370,11 +398,11 @@ EOF
     CXX="clang++"
     FC="flang-new"
     for tool in CC CXX FC ; do
-      if ! command -v ${!tool} > /dev/null 2>&1 ; then
+      if ! type -P ${!tool} > /dev/null 2>&1 ; then
         eval echo ERROR: Failed to detect Homebrew compiler install at ${!tool}
         exit 1
       else
-        eval $tool=`which ${!tool}`
+        eval $tool=$(abswhich ${!tool})
       fi
     done
   fi
@@ -383,27 +411,27 @@ EOF
     ask_permission_to_install_homebrew_package "'make'"
     exit_if_user_declines "make"
     $BREW install make
-    MAKE=`which gmake`
+    MAKE=$(abswhich gmake)
   fi
 
   if [ -z ${PKG_CONFIG:+x} ]; then
     ask_permission_to_install_homebrew_package "'pkg-config'"
     exit_if_user_declines "pkg-config"
     $BREW install pkg-config
-    PKG_CONFIG=`which pkg-config`
+    PKG_CONFIG=$(abswhich pkg-config)
   fi
 
   if [ -z ${FPM:+x} ] ; then
     ask_permission_to_install_homebrew_package "'fpm'"
     exit_if_user_declines "fpm"
     $BREW install fpm
-    FPM=`which fpm`
+    FPM=$(abswhich fpm)
   fi
 fi
 
 PREFIX=${PREFIX:-"${HOME}/.local"}
 mkdir -p "$PREFIX"
-PREFIX=$(realpath "$PREFIX")
+PREFIX=$(abspath "$PREFIX")
 echo "PREFIX=$PREFIX"
 
 if [ -z ${PKG_CONFIG_PATH:+x} ]; then
@@ -414,23 +442,22 @@ fi
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 export PKG_CONFIG_PATH
 
-FPM_FC="$(realpath $(command -v $FC))"
-if [[ $(basename $FPM_FC) == *flang* ]]; then
+FC="$(abswhich $FC)"
+if [[ $(basename $FC) == *flang* ]]; then
   # old versions of fpm rely on basename 'flang-new' to recognize LLVM flang,
   # so look for a corresponding symlink to the same compiler
-  TRY_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
+  TRY_FC=${FC/%flang-[1-9][0-9]/flang-new}
   TRY_FC=${TRY_FC/%flang/flang-new}
-  if [[ -x $TRY_FC ]] && [[ $(realpath $TRY_FC) == $(realpath $FPM_FC) ]] ; then
-    FPM_FC=$TRY_FC
+  if [[ -x $TRY_FC ]] && [[ $(realpath $TRY_FC) == $(realpath $FC) ]] ; then
+    FC="$(abswhich $TRY_FC)"
   fi
 fi
-CC="$(realpath $(command -v $CC))"
-FPM_CC="$CC"
-export FPM_CC
+CC="$(abswhich $CC)"
+CXX="$(abswhich $CXX)"
 
 if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   # fixups necessitated by using Brew flang:
-  if [[ $FPM_FC =~ flang ]] && [[ $FPM_FC =~ $BREW_PREFIX ]] ; then
+  if [[ $FC =~ flang ]] && [[ $FC =~ $BREW_PREFIX ]] ; then
     # workaround issue #228: clang cannot find Homebrew flang's C header
     APPEND_CFLAGS="-I$(dirname $(find "$BREW_PREFIX/Cellar/flang" -name ISO_Fortran_binding.h | head -1))"
 
@@ -454,7 +481,7 @@ if ! $PKG_CONFIG $pkg ; then
     rm -Rf $GASNET_DIR
   fi
   
-  curl -L $VERBOSE --retry 10 --retry-all-errors --fail $GASNET_SOURCE_URL -o $GASNET_TAR_FILE
+  $CURL -L $VERBOSE --retry 10 --retry-all-errors --fail $GASNET_SOURCE_URL -o $GASNET_TAR_FILE
   tar xvzf $GASNET_TAR_FILE -C $DEPENDENCIES_DIR
   
   ( 
@@ -521,10 +548,8 @@ esac
 # Strip compiler flags
 # Warning: This assumes the full path doesn't contain any spaces!
 GASNET_CC_STRIPPED="$(echo $GASNET_CC | awk '{print $1};')"
-GASNET_CC_REAL="$(realpath $GASNET_CC_STRIPPED)"
-
-if [ "$GASNET_CC_REAL" != "$CC" ]; then 
-  echo "ERROR: C Compiler mismatch: GASNET_CC=$GASNET_CC_REAL and CC=$CC don't match"
+if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ]; then 
+  echo "ERROR: C Compiler mismatch: GASNET_CC=$(realpath $GASNET_CC_STRIPPED) and CC=$(realpath $CC) don't match"
   exit 1;
 fi
 
@@ -543,7 +568,7 @@ echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
 CAFFEINE_PC="$PREFIX/lib/pkgconfig/caffeine.pc"
 cat << EOF > $CAFFEINE_PC
 CAFFEINE_FPM_LDFLAGS=$GASNET_LDFLAGS $GASNET_LIB_LOCATIONS $APPEND_LDFLAGS
-CAFFEINE_FPM_FC=$FPM_FC
+CAFFEINE_FPM_FC=$FC
 CAFFEINE_FPM_CC=$GASNET_CC
 CAFFEINE_FPM_CFLAGS=$GASNET_CFLAGS $GASNET_CPPFLAGS $APPEND_CFLAGS
 Name: caffeine
@@ -560,7 +585,7 @@ user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
 compiler_flag="-g"
 compiler_flag_debug="-O0"
 compiler_flag_opt="-O3"
-compiler_version=$($FPM_FC --version)
+compiler_version=$($FC --version)
 if [[ $compiler_version =~ 'flang' ]]; then
   : # use defaults
 elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
