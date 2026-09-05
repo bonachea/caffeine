@@ -562,55 +562,56 @@ fi
 FPM_TOML_LINK_ENTRY="link = [\"$(echo ${GASNET_LIB_NAMES} | sed 's/ /", "/g')\"]"
 echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
 
+# save Fortran flag user inputs
 user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
 
 # compiler-specific flag defaults
-compiler_flag="-g"
-compiler_flag_debug="-O0"
-compiler_flag_opt="-O3"
+FFLAGS="-g"
+FFLAGS_debug="-O0"
+FFLAGS_opt="-O3"
 compiler_version=$($FC --version)
 if [[ $compiler_version =~ 'flang' ]]; then
   : # use defaults
 elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
-  compiler_flag="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
+  FFLAGS="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
 elif [[ $compiler_version =~ 'LFortran' ]]; then
-  compiler_flag="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
-  compiler_flag_debug="" # LFortran -g not always available and leads to bizarre errors when it's not
+  # LFortran -g deliberately omitted: not always available, and leads to bizarre errors when it's not
+  FFLAGS="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
 else # unknown compiler
-  compiler_flag_opt=-O2
+  FFLAGS_opt=-O2
   echo "WARNING: Failed to detect a recognized Fortran compiler"
 fi
 if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
-  compiler_flag="$compiler_flag_debug $compiler_flag"
+  FFLAGS="$FFLAGS_debug $FFLAGS"
 else
-  compiler_flag="$compiler_flag_opt $compiler_flag"
+  FFLAGS="$FFLAGS_opt $FFLAGS"
 fi
 
 # enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
-compiler_flag+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
+FFLAGS+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
 # enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
-compiler_flag+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
-
-if ! [[ "$user_compiler_flags " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
-  # assertions not explicitly enabled or disabled on the command-line
-  # default assertions based on codemode (--enable-debug)
-  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
-    compiler_flag+=" -DASSERTIONS"
-  fi
-fi
+FFLAGS+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
 
 if [[ $GASNET_THREADMODE == "par" ]] ; then
-  compiler_flag+=" -DCAF_THREAD_SAFE"
+  FFLAGS+=" -DCAF_THREAD_SAFE"
 fi
 
 GASNET_CONDUIT_UPPER=$(tr '[:lower:]' '[:upper:]' <<<$GASNET_CONDUIT)
-compiler_flag+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
+FFLAGS+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
 
-# Should come last to allow command-line overrides
-compiler_flag+=" $user_compiler_flags"
+# Append user flags last to allow command-line overrides
+FFLAGS+=" $user_compiler_flags"
+
+if ! [[ "$FFLAGS " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
+  # assertions not explicitly enabled or disabled on the command-line
+  # default assertions based on codemode (--enable-debug)
+  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+    FFLAGS+=" -DASSERTIONS"
+  fi
+fi
 
 # Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
-for opt in $compiler_flag; do
+for opt in $FFLAGS; do
   case "$opt" in
     -DASSERTIONS* | -UASSERTIONS* | -DFORCE_PRIF_* | -UFORCE_PRIF_*)
        APPEND_CFLAGS+=" $opt"
@@ -630,6 +631,7 @@ cat << EOF > "$PKG_CONFIG_DIR/$CAFFEINE_PC"
 
 CAFFEINE_FC=$FC
 CAFFEINE_CC=$CC
+CAFFEINE_FFLAGS=$FFLAGS
 CAFFEINE_CFLAGS=$APPEND_CFLAGS
 CAFFEINE_LDFLAGS="-L$PREFIX/lib $APPEND_LDFLAGS"
 CAFFEINE_NETWORK=$GASNET_CONDUIT
@@ -676,7 +678,7 @@ FPM="$FPM"
 FC="$FC"
 CC="$CC"
 NATIVEFLAGS=""
-RAWFLAGS="$compiler_flag"
+RAWFLAGS="$FFLAGS"
 FFLAGS="\$NATIVEFLAGS \$RAWFLAGS"
 CFLAGS="$CAFFEINE_CFLAGS"
 LDFLAGS="$CAFFEINE_LDFLAGS"
