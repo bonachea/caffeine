@@ -37,6 +37,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ ( github.event_name == 'workflow_dispatch' && github.run_id ) || 'auto' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -e -x -o pipefail {0}
@@ -339,7 +342,10 @@ jobs:
 
     - name: Setup Macports
       if: matrix.macports
-      uses: melusina-org/setup-macports@v1
+      #uses: melusina-org/setup-macports@v1
+      uses: ukiryu/setup-macports@v1
+      with:
+        github-token: ${{ github.token }}
 
     - name: Install macOS Dependencies (Homebrew)
       if: ${{ contains(matrix.os, 'macos') && !matrix.macports && !matrix.brew_via_install }}
