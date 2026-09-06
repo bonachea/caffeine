@@ -346,6 +346,7 @@ jobs:
       uses: ukiryu/setup-macports@v1
       with:
         github-token: ${{ github.token }}
+        install-ports: 'libgcc12 flang-${COMPILER_VERSION}'
 
     - name: Install macOS Dependencies (Homebrew)
       if: ${{ contains(matrix.os, 'macos') && !matrix.macports && !matrix.brew_via_install }}
@@ -360,7 +361,8 @@ jobs:
         fi
 
     - name: Install macOS Dependencies (Macports)
-      if: matrix.macports
+      #if: matrix.macports
+      if: false
       run: |
         #sudo port -v selfupdate
         # fpm binary distribution for macOS requires gfortran shared libraries from gcc@12
@@ -383,7 +385,7 @@ jobs:
     - name: Install LLVM flang on macOS (Macports)
       if: ${{ matrix.compiler == 'flang' && matrix.macports }}
       run: |
-        sudo port -v install flang-${COMPILER_VERSION}
+        #sudo port -v install flang-${COMPILER_VERSION}
         sudo ln -sf /opt/local/bin/flang-mp-${COMPILER_VERSION} /opt/local/bin/flang
         sudo ln -sf /opt/local/bin/flang-mp-${COMPILER_VERSION} /opt/local/bin/flang-new
         sudo ln -sf /opt/local/bin/clang-mp-${COMPILER_VERSION} /opt/local/bin/clang
