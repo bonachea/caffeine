@@ -7,11 +7,11 @@ print_usage_info()
     cat <<'EOF'
 Caffeine Installation Script
 
-USAGE:
-./install.sh [--help | [--prefix=PREFIX]
+Usage: ./install.sh [OPTION]...
 
+Options:
  --help             Display this help text
- --prefix=PREFIX    Install library into 'PREFIX' directory
+ --prefix=<PREFIX>  Install libraries into <PREFIX> directory
                     Default prefix='\$HOME/.local/bin'
  --network=<NET>    Build Caffeine to target given GASNet network conduit. 
                     <NET> should be one of:
@@ -22,7 +22,7 @@ USAGE:
                       ucx: Unified Communication X
  --prereqs          Display a list of prerequisite software.
  --verbose          Show verbose build commands
- --yes              Assume (yes) to all prompts for non-interactive build
+ --yes              Assume (yes) to all prompts for non-interactive install
  --enable-debug     Build Caffeine and GASNet in LOW-PERFORMANCE debug mode,
                     disabling optimization and enabling assertions to help find defects.
  --enable-threads   Build a thread-safe Caffeine library and link to
@@ -41,7 +41,7 @@ Some influential environment variables:
               nonstandard directory <lib dir>
   LIBS        libraries to pass to the linker, e.g. -l<library>
 Use these variables to override the choices made by the installer or to help
-it to find libraries and programs with nonstandard names/locations.
+it to find programs with nonstandard names/locations.
 
 Report bugs to fortran@lbl.gov or at https://go.lbl.gov/caffeine
 
