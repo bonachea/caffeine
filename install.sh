@@ -682,13 +682,19 @@ LDFLAGS="$CAFFEINE_LDFLAGS"
 FPM_DRIVER=\${FPM_DRIVER:-\$([[ "\$0" == /* ]] && echo "\$0" || echo "\$PWD/\$0")}
 export FPM_DRIVER
 fpm_sub_cmd=\$1; shift
-if echo "--help -help --version -version --list -list new update list clean publish" | grep -w -q -e "\$fpm_sub_cmd" ; then
+if [[ "\$fpm_sub_cmd" == "install" && "\$1" != "--list" ]] ; then
+  echo "ERROR: Please use install.sh to install Caffeine."
+  exit 1
+fi
+case "\$fpm_sub_cmd" in
+--help|-help|help|--version|-version|--list|-list|new|update|list|clean|publish)
   set -x
   exec "\$FPM" "\$fpm_sub_cmd" "\$@"
-elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+build|test|run|install)
   sed -i.bak 's/^link = .*\$/$FPM_TOML_LINK_ENTRY/' $FPM_TOML
   rm -f $FPM_TOML.bak # issue 282: this is the only portable way to use sed -i
-  if test -n "$GASNET_RUNNER_ARG" && echo "test run" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  if [[ -n "$GASNET_RUNNER_ARG" && " test run " == *" \$fpm_sub_cmd "* ]]; then
     set -- "--runner=$GASNET_RUNNER_ARG" "\$@"
   fi
   set -x
@@ -700,17 +706,19 @@ elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
   --c-flag "\$CFLAGS" \\
   --link-flag "\$LDFLAGS" \\
   "\$@"
-elif echo "set-native" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+set-native)
   set -e
   mkdir -p build
   cmd="\$FC \$RAWFLAGS app/print-native-flags.F90 -o build/print-native-flags $APPEND_LDFLAGS"
   eval \$cmd || (set -x ; eval \$cmd)
-  NATIVEFLAGS="\`build/print-native-flags\`"
+  NATIVEFLAGS=\$(build/print-native-flags)
   rm -f build/print-native-flags
   sed -i.bak 's/^NATIVEFLAGS=.*\$/NATIVEFLAGS="'"\$NATIVEFLAGS"'"/' \$FPM_DRIVER
   rm -f \$FPM_DRIVER.bak
   echo NATIVEFLAGS=\"\$NATIVEFLAGS\"
-elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+info)
   LINE=--------------------------------------------------
   SRCDIR=\$(dirname \$FPM_DRIVER)
   GASNETDIR="$GASNET_PREFIX"
@@ -718,21 +726,19 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   echo \$LINE
   echo Version info:
   echo Caffeine \$(grep version \$SRCDIR/fpm.toml)
-  if test -d \$SRCDIR/.git ; then
+  if [[ -d \$SRCDIR/.git ]]; then
     GITVER=\$( ( cd \$SRCDIR && git describe --long --dirty --always ) 2> /dev/null)
-    if test -n "\$GITVER"; then
-      echo "  git describe: \$GITVER"
-    fi
+    [[ -n "\$GITVER" ]] && echo "  git describe: \$GITVER"
   fi
-  if test -r "\$GASNETCONFIG"; then
+  if [[ -r "\$GASNETCONFIG" ]]; then
     echo GASNet version \$(grep GASNETI_RELEASE_VERSION \$GASNETCONFIG | cut -d' ' -f3-)
   fi
   grep -e assert -e julienne \$SRCDIR/fpm.toml
   echo \$LINE
   echo Platform info:
   uname -a
-  if test -r /etc/os-release ; then grep -e NAME -e VERSION /etc/os-release  ; fi
-  if test -x /usr/bin/sw_vers ; then /usr/bin/sw_vers ; fi
+  [[ -r /etc/os-release ]] && grep -e NAME -e VERSION /etc/os-release
+  [[ -x /usr/bin/sw_vers ]] && /usr/bin/sw_vers
   echo \$LINE
   echo Install settings:
   echo ID="\$(date) \$(whoami)"
@@ -748,7 +754,7 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   echo GASNET_CONDUIT=$GASNET_CONDUIT
   echo GASNET_CODEMODE=$GASNET_CODEMODE
   echo GASNET_THREADMODE=$GASNET_THREADMODE
-  if test -r "\$GASNETCONFIG"; then
+  if [[ -r "\$GASNETCONFIG" ]]; then
     grep -e GASNETI_BUILD_ID -e GASNETI_CONFIGURE_ARGS \$GASNETCONFIG | cut -d' ' -f2-
   fi
   for tool in FPM FC CC ; do
@@ -762,11 +768,12 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
     \$toolval --version
   done
   echo \$LINE
-else
+  ;;
+*)
   echo "ERROR: Unrecognized fpm subcommand \$fpm_sub_cmd"
   \$FPM list
   exit 1
-fi
+esac
 EOF
 chmod u+x $RUN_FPM_SH
 # for backwards-compatibility of instructions/scripting:
