@@ -1,14 +1,19 @@
 program print_native_flags
-  use iso_fortran_env, only: COMPILER_VERSION, COMPILER_OPTIONS
+  use iso_fortran_env, only: COMPILER_VERSION, COMPILER_OPTIONS, error_unit
   implicit none
 
   character(:), allocatable :: flags
   logical :: stand_alone
 
 #if VERBOSE
-  write(error_unit,'(A,A)') "COMPILER_VERSION=", COMPILER_VERSION()
-  write(error_unit,'(A,A)') "COMPILER_OPTIONS=", COMPILER_OPTIONS()
+  logical, parameter :: verbose = .true.
+#else
+  logical, parameter :: verbose = .false.
 #endif
+  if (verbose) then
+    write(error_unit,'(A,A)') "COMPILER_VERSION=", COMPILER_VERSION()
+    write(error_unit,'(A,A)') "COMPILER_OPTIONS=", COMPILER_OPTIONS()
+  end if
 
   stand_alone = COMMAND_ARGUMENT_COUNT() > 0
 
