@@ -71,6 +71,8 @@ subroutine write_flags
 #    if  __LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ == 64
      call no("TEAM")
 
+     call no("CO_BROADCAST_DERIVED_POD")
+
      call no("ALLOC_COARRAY")
      call no("COARRAY_QUERY")
      call no("PUTGET_INTRINSIC_ARRAY_CONTIG")
@@ -86,6 +88,8 @@ subroutine write_flags
      call no("NUM_IMAGES_TEAM")
      call no("THIS_IMAGE_TEAM")
      call no("TEAM_NUMBER")
+
+     call no("CO_BROADCAST_DERIVED_POD")
 
      call no("ALLOC_COARRAY_CLEANUP")
      call no("IMAGE_INDEX")
