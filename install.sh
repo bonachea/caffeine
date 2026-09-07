@@ -150,8 +150,8 @@ append_gasnet_configure_arg() {
 
 while [ "$1" != "" ]; do
     orig_arg="$1"
-    PARAM=$(echo "$1" | awk -F= '{print $1}')
-    VALUE=$(echo "$1" | awk -F= '{print $2}')
+    PARAM=$(awk -F= '{print $1}' <<< $1)
+    VALUE=$(awk -F= '{print $2}' <<< $1)
     case $PARAM in
         -h | --help)
             print_usage_info
@@ -208,7 +208,7 @@ fi
 # Early check for pre-installed Homebrew
 BREW="${BREW:-brew}"
 if type -P "$BREW" > /dev/null 2>&1; then
-  BREW_PREFIX=`$BREW --prefix || exit 0`
+  BREW_PREFIX=$($BREW --prefix || exit 0)
   if [ -z ${BREW_PREFIX:+x} ] || [ ! -d "$BREW_PREFIX" ] ; then
     echo Warning: Failed to detect Homebrew prefix
     BREW_PREFIX=
@@ -229,11 +229,11 @@ if [ -z ${FC:+x} ] || [ -z ${CC:+x} ]; then
     echo "Setting CC=$CC"
   fi
 fi
-if [ -n "$CC" ] && ! type -P "$CC" > /dev/null 2>&1; then
+if [ -n "${CC:+x}" ] && ! type -P "$CC" > /dev/null 2>&1; then
   echo "CC=$CC not found. If you don't yet have a C compiler, please leave environment variable CC unset."
   exit 1
 fi
-if [ -n "$FC" ] && ! type -P "$FC" > /dev/null 2>&1; then
+if [ -n "${FC:+x}" ] && ! type -P "$FC" > /dev/null 2>&1; then
   echo "FC=$FC not found. If you don't yet have a Fortran compiler, please leave environment variable FC unset."
   exit 1
 fi
@@ -268,15 +268,15 @@ FPM=$(abswhich ${FPM:-fpm} silent)
 # FPM disallows override of the git command, so don't allow it here either
 # Homebrew requires git and curl to operate, so cannot be used to provide them when they are missing
 GIT=$(abswhich git silent)
-if [[ -z ${GIT:-} ]] ; then
-  echo "git not found. Building Caffeine requires fpm, which uses git to download dependencies."
+if [[ -z "$GIT" ]] ; then
+  echo "git not found. Building Caffeine requires git to download dependencies."
   echo "Please install git, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
 
 # FPM disallows override of the curl command, so don't allow it here either
 CURL=$(abswhich curl silent)
-if [[ -z ${CURL:-} ]] ; then
+if [[ -z "$CURL" ]] ; then
   echo "curl not found. Please install curl, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
@@ -376,7 +376,7 @@ EOF
     fi
   fi
 
-  BREW_PREFIX=`$BREW --prefix || exit 0`
+  BREW_PREFIX=$($BREW --prefix || exit 0)
   if [ -z ${BREW_PREFIX:+x} ] || [ ! -d "$BREW_PREFIX" ] ; then
     echo Failed to detect Homebrew prefix
     echo 1
@@ -510,41 +510,38 @@ exit_if_pkg_config_pc_file_missing()
 
 exit_if_pkg_config_pc_file_missing "$pkg"
 
-GASNET_LDFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_LDFLAGS`"
-GASNET_LIBS="`$PKG_CONFIG $pkg --variable=GASNET_LIBS`"
-GASNET_CC="`$PKG_CONFIG $pkg --variable=GASNET_CC`"
-GASNET_CFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_CFLAGS`"
-GASNET_CPPFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_CPPFLAGS`"
+GASNET_LDFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_LDFLAGS)
+GASNET_LIBS=$($PKG_CONFIG $pkg --variable=GASNET_LIBS)
+GASNET_CC=$($PKG_CONFIG $pkg --variable=GASNET_CC)
+GASNET_CFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_CFLAGS)
+GASNET_CPPFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_CPPFLAGS)
 
-# Check whether GASNet was installed using Spack. If yes, bail out.
-# Note: relies on the fact that most Spack installations have "opt/spack"
-#       in the directory path, and assumes that the first directory returned
-#       by pkg-config contains the GASNet lib directory
-GASNET_LIBDIR="$(echo $GASNET_LIBS | awk '{print $1};')"
+# Relies on the first directory in GASNET_LIBS is the GASNet lib directory
+GASNET_LIBDIR=$(awk '{print $1};' <<< $GASNET_LIBS)
 GASNET_LIBDIR=${GASNET_LIBDIR#-L}
-case "$GASNET_LIBDIR" in
-  *spack* )
-	cat << EOF
+
+# Check whether GASNet appears to be a Spack install. If yes, bail out.
+# Note: most Spack installations have "opt/spack" in the directory path.
+if [[ $GASNET_LIBDIR == *spack* ]] && \
+   [[ $(realpath $GASNET_LIBDIR) != $(realpath "$PREFIX/lib") ]]; then
+  cat << EOF
 ***NOTICE***: The GASNet library built by Spack is ONLY intended for
 unit-testing purposes, and is generally UNSUITABLE FOR PRODUCTION USE.
 The RECOMMENDED way to build GASNet is as an embedded library as configured
 by the higher-level client runtime package (i.e. Caffeine), including
 system-specific configuration. Exiting install.sh
 EOF
-    exit 1
-    ;;
-  * )
-    GASNET_PREFIX=$(dirname $GASNET_LIBDIR)
-    if [ ! -r "$GASNET_PREFIX/include/gasnetex.h" ] ; then
-      echo "ERROR: Failed to detect GASNet install prefix from $GASNET_LIBS"
-      exit 1
-    fi
-    ;; 
-esac
+  exit 1
+fi
+GASNET_PREFIX=$(dirname $GASNET_LIBDIR)
+if [ ! -r "$GASNET_PREFIX/include/gasnetex.h" ] ; then
+  echo "ERROR: Failed to detect GASNet install prefix from $GASNET_LIBS"
+  exit 1
+fi
 
 # Strip compiler flags
 # Warning: This assumes the full path doesn't contain any spaces!
-GASNET_CC_STRIPPED="$(echo $GASNET_CC | awk '{print $1};')"
+GASNET_CC_STRIPPED=$(awk '{print $1};' <<< $GASNET_CC)
 if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ]; then 
   echo "ERROR: C Compiler mismatch: GASNET_CC=$(realpath $GASNET_CC_STRIPPED) and CC=$(realpath $CC) don't match"
   exit 1;
@@ -554,12 +551,12 @@ FPM_TOML="fpm.toml"
 rm -f $FPM_TOML
 echo "# DO NOT EDIT OR COMMIT -- Created by caffeine/install.sh" > $FPM_TOML
 cat manifest/fpm.toml.template >> $FPM_TOML
-GASNET_LIB_LOCATIONS=`echo $GASNET_LIBS | awk '{locs=""; for(i = 1; i <= NF; i++) if ($i ~ /^-L/) {locs=(locs " " $i);}; print locs; }'`
-GASNET_LIB_NAMES=`echo $GASNET_LIBS | awk '{names=""; for(i = 1; i <= NF; i++) if ($i ~ /^-l/) {names=(names " " $i);}; print names; }' | sed 's/-l//g'`
+GASNET_LIB_LOCATIONS=$(awk '{locs=""; for(i = 1; i <= NF; i++) if ($i ~ /^-L/) {locs=(locs " " $i);}; print locs; }' <<< $GASNET_LIBS)
+GASNET_LIB_NAMES=$(awk '{names=""; for(i=1; i<=NF; i++) if(sub(/^-l/, "", $i)) names=(names ? names " " : "") $i; print names}' <<< $GASNET_LIBS)
 if [[ $GASNET_CONDUIT == "udp" ]] ; then
   GASNET_LIB_NAMES+=" stdc++" # udp-conduit requires C++ libraries
 fi
-FPM_TOML_LINK_ENTRY="link = [\"$(echo ${GASNET_LIB_NAMES} | sed 's/ /", "/g')\"]"
+FPM_TOML_LINK_ENTRY="link = [\"$(sed 's/ /", "/g' <<< $GASNET_LIB_NAMES)\"]"
 echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
 
 # save Fortran flag user inputs
