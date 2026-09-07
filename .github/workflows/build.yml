@@ -64,6 +64,15 @@ jobs:
         compiler: [ gfortran ]
         version: [ 13, 14, 15, 16 ]
         network: [ smp ]
+
+        exclude:
+
+          # Homebrew removed Intel bottles for gcc@16
+          - os: macos-15-intel
+            version: 16
+          - os: macos-26-intel
+            version: 16
+
         include:
 
         # --- Other selected GFortran+Linux combos ---
@@ -87,13 +96,16 @@ jobs:
           - os: macos-26
             compiler: flang
             brew_via_install: 1
-          # flang 23 bottle missing for Sonoma/x86_64
-          #- os: macos-15-intel
-          #  compiler: flang
-          #  brew_via_install: 1
+          # No Homebrew bottle for Intel, use MacPorts instead
+          - os: macos-15-intel
+            compiler: flang
+            version: 23
+            macports: 1
+          # flang MacPort missing for Tahoe
           #- os: macos-26-intel
           #  compiler: flang
-          #  brew_via_install: 1
+          #  version: 23
+          #  macports: 1
 
           - os: ubuntu-24.04
             compiler: flang
@@ -208,13 +220,19 @@ jobs:
             version: 14
             network: udp
 
-          # flang 23 bottle missing for Sonoma/x86_64
-          #- os: macos-15-intel
-          #  compiler: flang
-          #  network: udp
+          # No Homebrew bottle for Intel, use MacPorts instead
+          - os: macos-15-intel
+            compiler: flang
+            version: 23
+            macports: 1
+            network: udp
+          # flang MacPort missing for Tahoe
           #- os: macos-26-intel
           #  compiler: flang
+          #  version: 23
+          #  macports: 1
           #  network: udp
+
           - os: macos-15
             compiler: flang
             network: udp
@@ -310,7 +328,7 @@ jobs:
         fi
 
     - name: Fix macOS Homebrew Configuration
-      if: ${{ contains(matrix.os, 'macos') }}
+      if: ${{ contains(matrix.os, 'macos') && !matrix.macports }}
       run: |
         # silence Homebrew tap trust warnings:
         (set +e ; brew untap -f aws/tap hashicorp/tap 2>&1 | perl -pe 's/#*.warning./warn: /' ; brew trust azure/bicep )
@@ -323,8 +341,12 @@ jobs:
           echo HOMEBREW_NO_INSTALL_CLEANUP=1 >> "$GITHUB_ENV"
         fi
 
-    - name: Install macOS Dependencies
-      if: ${{ contains(matrix.os, 'macos') && !matrix.brew_via_install }}
+    - name: Setup Macports
+      if: matrix.macports
+      uses: melusina-org/setup-macports@v1
+
+    - name: Install macOS Dependencies (Homebrew)
+      if: ${{ contains(matrix.os, 'macos') && !matrix.macports && !matrix.brew_via_install }}
       run: |
         brew update
         # fpm binary distribution for macOS requires gfortran shared libraries from gcc@12
@@ -335,14 +357,37 @@ jobs:
             2>&1 | perl -pe "$BREW_WARNING_FILTER" ; test ${PIPESTATUS[0]} = 0
         fi
 
-    - name: Install LLVM flang on macOS
-      if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'flang' && !matrix.brew_via_install }}
+    - name: Install macOS Dependencies (Macports)
+      if: matrix.macports
+      run: |
+        #sudo port -v selfupdate
+        # fpm binary distribution for macOS requires gfortran shared libraries from gcc@12
+        sudo port -v install --allow-failing libgcc12
+        if [[ ${{ matrix.compiler }} == 'gfortran' && ${COMPILER_VERSION} -gt 15 ]] ; then
+          sudo port -v install gcc${COMPILER_VERSION}
+        fi
+        # Append Macports dynamic library directory
+        echo "DYLD_FALLBACK_LIBRARY_PATH=/opt/local/lib/libgcc/:$DYLD_FALLBACK_LIBRARY_PATH" >> "$GITHUB_ENV"
+
+    - name: Install LLVM flang on macOS (Homebrew)
+      if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'flang' && !matrix.macports && !matrix.brew_via_install }}
       run: |
         brew install llvm@${COMPILER_VERSION} flang \
             2>&1 | perl -pe "$BREW_WARNING_FILTER" ; test ${PIPESTATUS[0]} = 0
           perl -pe "$BREW_WARNING_FILTER" ; test ${PIPESTATUS[0]} = 0
         # Prepend homebrew clang to PATH:
         echo "PATH=$(brew --prefix)/opt/llvm/bin:${PATH}" >> "$GITHUB_ENV"
+
+    - name: Install LLVM flang on macOS (Macports)
+      if: ${{ matrix.compiler == 'flang' && matrix.macports }}
+      run: |
+        sudo port -v install flang-${COMPILER_VERSION}
+        sudo ln -sf /opt/local/bin/flang-mp-${COMPILER_VERSION} /opt/local/bin/flang
+        sudo ln -sf /opt/local/bin/flang-mp-${COMPILER_VERSION} /opt/local/bin/flang-new
+        sudo ln -sf /opt/local/bin/clang-mp-${COMPILER_VERSION} /opt/local/bin/clang
+        sudo ln -sf /opt/local/bin/clang++-mp-${COMPILER_VERSION} /opt/local/bin/clang++
+        # Prepend Macports clang to PATH:
+        echo "PATH=/opt/local/bin:${PATH}" >> "$GITHUB_ENV"
 
     - name: Setup FPM
       if: ${{ !matrix.brew_via_install && !(runner.os == 'Linux' && runner.arch == 'ARM64') }}
