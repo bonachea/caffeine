@@ -48,19 +48,24 @@ their solution to support Fortran's multi-image parallel features.
 
 Prerequisites & Dependencies
 -------------
-### Build prerequisites
-The `install.sh` script uses the following packages:
-* Fortran and C compilers
-    * We regularly test with: LLVM Flang versions 19:22 and GNU Fortran versions 13:15
-* [Fortran package manager] `fpm`
-* [pkg-config]
-* [realpath]
-* [make]
-* [git]
-* [curl]
+Caffeine supports recent versions of Linux and macOS, running on x86\_64 (amd64) or ARM64 (aarch64) architectures.
+Other architectures and POSIX-like environments may also work, but are not regularly tested.
 
-The script will invoke these if present in a user's `PATH`.
-If not present, the script will ask permission to use [Homebrew] to install the relevant package
+### Build prerequisites
+
+The `install.sh` script uses the following packages to build Caffeine:
+* Fortran and C compilers. We [regularly test](https://github.com/BerkeleyLab/caffeine/actions?query=branch%3Amain) with:
+   - LLVM Flang versions 19:23,
+   - GNU Fortran versions 13:16, and
+   - LFortran versions 0.64:
+* [`fpm`](https://github.com/fortran-lang/fpm), the Fortran package manager
+* [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+* [GNU make](https://www.gnu.org/software/make/)
+* [git](https://git-scm.com)
+* [curl](https://curl.se)
+
+The `install.sh` script will invoke these if found in the user's `PATH`.
+If not present, the script will ask permission to use [Homebrew](https://brew.sh) to install the relevant package
 or, in some cases, ask the user to install the package.
 
 ### Build dependencies
@@ -68,9 +73,9 @@ or, in some cases, ask the user to install the package.
 Caffeine also depends on the following packages that will be automatically installed as part
 of the build process.
 
-* [GASNet-EX] exascale networking middleware
-* [assert](https://go.lbl.gov/assert)
-* [julienne](https://go.lbl.gov/julienne)
+* [GASNet-EX] : exascale networking middleware, providing communication services
+* [assert](https://go.lbl.gov/assert) : Fortran assertion package, enforces invariants in debug mode
+* [julienne](https://go.lbl.gov/julienne) : Fortran test infrastructure (only for unit tests)
 
 Caffeine leverages the following non-parallel features of Fortran to simplify the writing of a portable, compact runtime-library that supports Fortran's parallel features:
 
@@ -131,6 +136,16 @@ written in Fortran, simulating the PRIF calls that a theoretical
 source-to-source Fortran compiler might generate for a simple program written
 using Fortran's multi-image features to print a message from each image.
 
+Caffeine also includes a broad "smoke test" of multi-image Fortran features.
+When Caffeine was installed using a PRIF-compatible Fortran compiler (currently
+LLVM Flang 22+ or LFortran 0.64+) the following command will invoke this smoke
+test:
+```bash
+env CAF_IMAGES=8 ./run-fpm.sh run
+```
+This will exercise the available PRIF feature set of the compiler version
+detected at install time.
+
 Run tests
 ---------
 
@@ -167,6 +182,21 @@ Here are *a few* of the most useful GASNet knobs:
 * `GASNET_SSH_SERVERS="host1 host2"`: space-deliminted list of hostnames for distributed-memory job launch using the ssh-spawner
 
 See [GASNet documentation](https://gasnet.lbl.gov/dist-ex/README) for full details on all settings.
+
+Troubleshooting
+---------------
+
+The Caffeine `./install.sh` script defaults to building the library in an optimized production mode,
+which is generally suitable for end users and should be preferred for any performance-oriented runs.
+
+If you're developing compiler transformations targeting PRIF, or if you encounter a correctness 
+problem at runtime, then its **highly** recommended to instead build Caffeine in debug mode:
+```
+./install.sh --enable-debug
+```
+The `--enable-debug` flag disables compiler optimization and enables thousands
+of correctness checks system-wide. This includes sanity checking of PRIF subroutine
+arguments, and often provides an automated diagnosis that can pinpoint the problem.
 
 PRIF Implementation Status
 --------------------------
@@ -228,10 +258,3 @@ See [LICENSE.txt](LICENSE.txt) for usage terms and conditions.
 [CLaSS]: https://go.lbl.gov/class
 [Berkeley Lab]: https://lbl.gov
 [MPI]: https://www.mpi-forum.org
-[Homebrew]: https://brew.sh
-[Fortran package manager]: https://github.com/fortran-lang/fpm
-[pkg-config]: https://www.freedesktop.org/wiki/Software/pkg-config/
-[realpath]: https://man7.org/linux/man-pages/man3/realpath.3.html
-[make]: https://www.gnu.org/software/make/
-[git]: https://git-scm.com
-[curl]: https://curl.se
