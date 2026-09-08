@@ -1,14 +1,19 @@
 program print_native_flags
-  use iso_fortran_env, only: COMPILER_VERSION, COMPILER_OPTIONS
+  use iso_fortran_env, only: COMPILER_VERSION, COMPILER_OPTIONS, error_unit
   implicit none
 
   character(:), allocatable :: flags
   logical :: stand_alone
 
 #if VERBOSE
-  write(error_unit,'(A,A)') "COMPILER_VERSION=", COMPILER_VERSION()
-  write(error_unit,'(A,A)') "COMPILER_OPTIONS=", COMPILER_OPTIONS()
+  logical, parameter :: verbose = .true.
+#else
+  logical, parameter :: verbose = .false.
 #endif
+  if (verbose) then
+    write(error_unit,'(A,A)') "COMPILER_VERSION=", COMPILER_VERSION()
+    write(error_unit,'(A,A)') "COMPILER_OPTIONS=", COMPILER_OPTIONS()
+  end if
 
   stand_alone = COMMAND_ARGUMENT_COUNT() > 0
 
@@ -71,6 +76,8 @@ subroutine write_flags
 #    if  __LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ == 64
      call no("TEAM")
 
+     call no("CO_BROADCAST_DERIVED_POD")
+
      call no("ALLOC_COARRAY")
      call no("COARRAY_QUERY")
      call no("PUTGET_INTRINSIC_ARRAY_CONTIG")
@@ -86,6 +93,8 @@ subroutine write_flags
      call no("NUM_IMAGES_TEAM")
      call no("THIS_IMAGE_TEAM")
      call no("TEAM_NUMBER")
+
+     call no("CO_BROADCAST_DERIVED_POD")
 
      call no("ALLOC_COARRAY_CLEANUP")
      call no("IMAGE_INDEX")

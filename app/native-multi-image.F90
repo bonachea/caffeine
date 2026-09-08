@@ -34,6 +34,9 @@
 #ifndef HAVE_CO_BROADCAST
 #define HAVE_CO_BROADCAST HAVE_COLLECTIVES
 #endif
+#ifndef HAVE_CO_BROADCAST_DERIVED_POD
+#define HAVE_CO_BROADCAST_DERIVED_POD HAVE_CO_BROADCAST
+#endif
 
 ! TYPES_PRIF_COMPLIANT: ISO_FORTRAN_ENV multi-image types satisfy PRIF requirements
 ! TYPES_IMPORT_PRIF: compiler imports the real PRIF definition of ISO_FORTRAN_ENV types
@@ -360,6 +363,21 @@ program native_multi_image
     type(dummy_team_descriptor), pointer :: info => null()
   end type
 
+#if HAVE_CO_BROADCAST_DERIVED_POD
+  type :: bcast_parent_type
+    integer :: ap(4)
+  end type
+  type :: bcast_val_type
+    integer :: val
+  end type
+  type, extends(bcast_parent_type) :: bcast_type
+    integer :: ax(3)
+    type(bcast_val_type) :: val
+    integer :: sy
+  end type
+  type(bcast_type) :: bcast_var(4)
+#endif
+
   integer :: me, ni, peer, i, ia(3)
   character(len=10) :: c, ca(3)
 # if HAVE_FORM_TEAM
@@ -494,7 +512,7 @@ program native_multi_image
     call CO_MAX(ca,1)
 # endif
 # if HAVE_CO_BROADCAST
-    STATUS("Testing CO_BROADCAST...")
+    STATUS("Testing CO_BROADCAST(intrinsic)...")
     i = me*1000
     ia = i
     call CO_BROADCAST(i,1)
@@ -507,6 +525,22 @@ program native_multi_image
     CHECK_ASSERT(c == 'hello')
     call CO_BROADCAST(ca,1)
     CHECK_ASSERT(all(ca == 'hello'))
+# endif
+# if HAVE_CO_BROADCAST_DERIVED_POD
+    STATUS("Testing CO_BROADCAST(derived:pod)...")
+    do i=1,size(bcast_var)
+      bcast_var(i)%ap = me
+      bcast_var(i)%ax = me*10
+      bcast_var(i)%sy = me*100
+      bcast_var(i)%val%val = me*1000
+    end do
+    call CO_BROADCAST(bcast_var,ni)
+    do i=1,size(bcast_var)
+      CHECK_VALI(bcast_var(i)%val%val, ni*1000)
+      CHECK_VALI(bcast_var(i)%sy, ni*100)
+      CHECK_ASSERT(all(bcast_var(i)%ap == ni))
+      CHECK_ASSERT(all(bcast_var(i)%ax == ni*10))
+    end do
 # endif
 
 # if HAVE_TEAM_TYPE
