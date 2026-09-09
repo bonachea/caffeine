@@ -149,7 +149,6 @@ jobs:
           - os: ubuntu-24.04
             compiler: flang
             version: 19
-            FFLAGS: -mmlir -allow-assumed-rank
             container: phhargrove/llvm-flang:19.1.1-latest
 
         # --- lfortran coverage ---

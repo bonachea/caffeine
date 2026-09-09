@@ -48,6 +48,9 @@ Report bugs to fortran@lbl.gov or at https://go.lbl.gov/caffeine
 EOF
 }
 
+# ---------------------------------------------------------------
+# Global variables
+
 GASNET_VERSION="stable"
 GASNET_SOURCE_URL="https://github.com/BerkeleyLab/gasnet/releases/download/gex-$GASNET_VERSION/GASNet-$GASNET_VERSION.tar.gz"
 ASSERT_GIT=$(awk -F'"' '/^assert =/ {print $2}' manifest/fpm.toml.template)
@@ -63,7 +66,10 @@ GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
 GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
 GASNET_CODEMODE="${GASNET_CODEMODE:-opt}"
 GASNET_CONFIGURE_ARGS=${GASNET_CONFIGURE_ARGS:-}
+CI=${CI:-"false"} # GitHub Actions workflows set CI=true
 
+# ---------------------------------------------------------------
+# Global helper functions
 
 list_prerequisites()
 {
@@ -148,6 +154,9 @@ append_gasnet_configure_arg() {
   fi
 }
 
+# ---------------------------------------------------------------
+# Command line parsing
+
 while [ "$1" != "" ]; do
     orig_arg="$1"
     PARAM=$(awk -F= '{print $1}' <<< $1)
@@ -205,7 +214,9 @@ if [[ -n "$VERBOSE" ]] ; then
 )
 fi
 
+# ---------------------------------------------------------------
 # Early check for pre-installed Homebrew
+
 BREW="${BREW:-brew}"
 if type -P "$BREW" > /dev/null 2>&1; then
   BREW_PREFIX=$($BREW --prefix || exit 0)
@@ -214,6 +225,9 @@ if type -P "$BREW" > /dev/null 2>&1; then
     BREW_PREFIX=
   fi
 fi
+
+# ---------------------------------------------------------------
+# Initial compiler identification
 
 if [ -z ${FC:+x} ] || [ -z ${CC:+x} ]; then
   if type -P flang > /dev/null 2>&1; then
@@ -256,7 +270,9 @@ fi
 
 set -u # error on use of undefined variable
 
-# find dependencies, which we might need to install
+# ---------------------------------------------------------------
+# Dependency identification
+
 # allow overrides via envvar
 PKG_CONFIG=$(abswhich ${PKG_CONFIG:-pkg-config} silent)
   
@@ -280,6 +296,9 @@ if [[ -z "$CURL" ]] ; then
   echo "curl not found. Please install curl, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
+
+# ---------------------------------------------------------------
+# Homebrew support
 
 ask_permission_to_use_homebrew()
 {
@@ -311,8 +330,6 @@ ask_permission_to_install_homebrew_package()
   echo ""
   printf "Is it ok to use Homebrew to install $1? [yes] "
 }
-
-CI=${CI:-"false"} # GitHub Actions workflows set CI=true
 
 exit_if_user_declines()
 {
@@ -427,6 +444,9 @@ EOF
   fi
 fi
 
+# ---------------------------------------------------------------
+# Install location and compiler finalization
+
 PREFIX=${PREFIX:-"${HOME}/.local"}
 mkdir -p "$PREFIX"
 PREFIX=$(abspath "$PREFIX")
@@ -467,6 +487,86 @@ if [ "${BREW_PREFIX:-unset}" != unset ] ; then
     fi
   fi
 fi
+
+# ---------------------------------------------------------------
+# Fortran Flag computation
+
+# save Fortran flag user inputs
+user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
+
+# compiler-specific flag defaults
+FFLAGS="-g"
+FFLAGS_debug="-O0"
+FFLAGS_opt="-O3"
+compiler_version=$($FC --version)
+supported_version=
+if [[ $compiler_version =~ 'flang' ]]; then
+  # use defaults
+  supported_version=$(awk 'NR==1 && match($0, /version [0-9]+\.[0-9]+/){ v=substr($0, RSTART+8, RLENGTH-8); if (v+0 >= 19) print v; }' <<< "$compiler_version")
+  # flang-19 and older need extra args:
+  awk "BEGIN { exit ($supported_version < 20) }" || FFLAGS+=" -mmlir -allow-assumed-rank"
+elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
+  FFLAGS="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
+  supported_version=$(awk 'NR==1 && match($0, /) [0-9]+\.[0-9]+/){ v=substr($0, RSTART+2, RLENGTH-2); if (v+0 >= 13) print v; }' <<< "$compiler_version")
+elif [[ $compiler_version =~ 'LFortran' ]]; then
+  # LFortran -g deliberately omitted: not always available, and leads to bizarre errors when it's not
+  FFLAGS="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
+  supported_version=$(awk 'NR==1 && match($0, /version: [0-9]+\.[0-9]+/){ v=substr($0, RSTART+9, RLENGTH-9); if (v+0 >= 0.63) print v; }' <<< "$compiler_version")
+else # unknown compiler
+  FFLAGS_opt=-O2
+fi
+if [[ -z "$supported_version" ]] ; then
+  echo "WARNING: Failed to detect a recognized Fortran compiler."
+  echo 
+  echo "$FC --version reported the following:"
+  echo "$compiler_version"
+  echo 
+  echo "This does not appear to be one of the compiler+version combinations"
+  echo "officially supported by Caffeine (see README.md) and might not work."
+  printf "Are you certain you wish to continue installation with $FC? [yes] "
+  exit_if_user_declines "FC"
+fi
+
+if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+  FFLAGS="$FFLAGS_debug $FFLAGS"
+else
+  FFLAGS="$FFLAGS_opt $FFLAGS"
+fi
+
+# enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
+FFLAGS+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
+# enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
+FFLAGS+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
+
+if [[ $GASNET_THREADMODE == "par" ]] ; then
+  FFLAGS+=" -DCAF_THREAD_SAFE"
+fi
+
+GASNET_CONDUIT_UPPER=$(tr '[:lower:]' '[:upper:]' <<<$GASNET_CONDUIT)
+FFLAGS+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
+
+# Append user flags last to allow command-line overrides
+FFLAGS+=" $user_compiler_flags"
+
+if ! [[ "$FFLAGS " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
+  # assertions not explicitly enabled or disabled on the command-line
+  # default assertions based on codemode (--enable-debug)
+  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+    FFLAGS+=" -DASSERTIONS"
+  fi
+fi
+
+# Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
+for opt in $FFLAGS; do
+  case "$opt" in
+    -DASSERTIONS* | -UASSERTIONS* | -DFORCE_PRIF_* | -UFORCE_PRIF_*)
+       APPEND_CFLAGS+=" $opt"
+       ;;
+  esac
+done
+
+# ---------------------------------------------------------------
+# GASNet identification/build
 
 pkg="gasnet-$GASNET_CONDUIT-$GASNET_THREADMODE"
 
@@ -547,6 +647,9 @@ if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ]; then
   exit 1;
 fi
 
+# ---------------------------------------------------------------
+# Output file generation
+
 FPM_TOML="fpm.toml"
 rm -f $FPM_TOML
 echo "# DO NOT EDIT OR COMMIT -- Created by caffeine/install.sh" > $FPM_TOML
@@ -558,63 +661,6 @@ if [[ $GASNET_CONDUIT == "udp" ]] ; then
 fi
 FPM_TOML_LINK_ENTRY="link = [\"$(sed 's/ /", "/g' <<< $GASNET_LIB_NAMES)\"]"
 echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
-
-# save Fortran flag user inputs
-user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
-
-# compiler-specific flag defaults
-FFLAGS="-g"
-FFLAGS_debug="-O0"
-FFLAGS_opt="-O3"
-compiler_version=$($FC --version)
-if [[ $compiler_version =~ 'flang' ]]; then
-  : # use defaults
-elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
-  FFLAGS="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
-elif [[ $compiler_version =~ 'LFortran' ]]; then
-  # LFortran -g deliberately omitted: not always available, and leads to bizarre errors when it's not
-  FFLAGS="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
-else # unknown compiler
-  FFLAGS_opt=-O2
-  echo "WARNING: Failed to detect a recognized Fortran compiler"
-fi
-if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
-  FFLAGS="$FFLAGS_debug $FFLAGS"
-else
-  FFLAGS="$FFLAGS_opt $FFLAGS"
-fi
-
-# enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
-FFLAGS+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
-# enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
-FFLAGS+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
-
-if [[ $GASNET_THREADMODE == "par" ]] ; then
-  FFLAGS+=" -DCAF_THREAD_SAFE"
-fi
-
-GASNET_CONDUIT_UPPER=$(tr '[:lower:]' '[:upper:]' <<<$GASNET_CONDUIT)
-FFLAGS+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
-
-# Append user flags last to allow command-line overrides
-FFLAGS+=" $user_compiler_flags"
-
-if ! [[ "$FFLAGS " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
-  # assertions not explicitly enabled or disabled on the command-line
-  # default assertions based on codemode (--enable-debug)
-  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
-    FFLAGS+=" -DASSERTIONS"
-  fi
-fi
-
-# Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
-for opt in $FFLAGS; do
-  case "$opt" in
-    -DASSERTIONS* | -UASSERTIONS* | -DFORCE_PRIF_* | -UFORCE_PRIF_*)
-       APPEND_CFLAGS+=" $opt"
-       ;;
-  esac
-done
 
 # flag outputs
 CAFFEINE_CFLAGS="$GASNET_CFLAGS $GASNET_CPPFLAGS $APPEND_CFLAGS"
@@ -779,6 +825,9 @@ chmod u+x $RUN_FPM_SH
 # for backwards-compatibility of instructions/scripting:
 ( cd build && ln -f -s ../$RUN_FPM_SH run-fpm.sh )
 
+# ---------------------------------------------------------------
+# Caffeine build
+
 ./$RUN_FPM_SH set-native
 
 ./$RUN_FPM_SH build $VERBOSE || \
@@ -791,6 +840,9 @@ chmod u+x $RUN_FPM_SH
   echo "   https://github.com/berkeleylab/caffeine/issues"
   exit 1
 )
+
+# ---------------------------------------------------------------
+# Caffeine installation
 
 LIBCAFFEINE_DST=libcaffeine-$GASNET_CONDUIT-$GASNET_THREADMODE.a
 LIBCAFFEINE_SRC=$(./$RUN_FPM_SH install --list 2>/dev/null | grep libcaffeine | cut -d' ' -f2)
