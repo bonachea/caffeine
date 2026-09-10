@@ -55,9 +55,9 @@ Other architectures and POSIX-like environments may also work, but are not regul
 
 The `install.sh` script uses the following packages to build Caffeine:
 * Fortran and C compilers. We [regularly test](https://github.com/BerkeleyLab/caffeine/actions?query=branch%3Amain) with:
-   - LLVM Flang versions 19:23,
-   - GNU Fortran versions 13:16, and
-   - LFortran versions 0.64:
+   - LLVM Flang versions 19 or newer,
+   - GNU Fortran versions 13 or newer, and
+   - LFortran versions 0.64 or newer
 * [`fpm`](https://github.com/fortran-lang/fpm), the Fortran package manager
 * [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
 * [GNU make](https://www.gnu.org/software/make/)

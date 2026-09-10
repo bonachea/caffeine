@@ -22,7 +22,7 @@ Options:
                       ucx: Unified Communication X
  --prereqs          Display a list of prerequisite software.
  --verbose          Show verbose build commands
- --yes              Assume (yes) to all prompts for non-interactive install
+ --yes              Assume "yes" to all prompts for non-interactive install
  --enable-debug     Build Caffeine and GASNet in LOW-PERFORMANCE debug mode,
                     disabling optimization and enabling assertions to help find defects.
  --enable-threads   Build a thread-safe Caffeine library and link to
