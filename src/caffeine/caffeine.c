@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <math.h>
 #include <fenv.h>
 #include <gasnetex.h>
@@ -19,6 +18,13 @@
 #include "../dlmalloc/dl_malloc.h"
 #include "caffeine-internal.h"
 #include "version.h"
+
+// Ensure assertion enforcement in this file tracks the Caffeine ASSERTIONS setting
+#undef NDEBUG
+#if !ASSERTIONS
+#define NDEBUG 1
+#endif
+#include <assert.h>
 
 enum {
   UNRECOGNIZED_TYPE,
@@ -51,17 +57,12 @@ CAF_IDENT(Network, CAF_STRINGIFY(GASNET_CONDUIT_NAME));
 CAF_IDENT(LibraryVersion, CAF_STRINGIFY(CAF_RELEASE_VERSION_MAJOR) "."
                           CAF_STRINGIFY(CAF_RELEASE_VERSION_MINOR) "."
                           CAF_STRINGIFY(CAF_RELEASE_VERSION_PATCH));
-#if 0
-// TODO: PRIFVersion does not correctly respect FORCE_PRIF_X flags unless they are also passed in CFLAGS
 CAF_IDENT(PRIFVersion, CAF_STRINGIFY(CAF_PRIF_VERSION_MAJOR) "."
                        CAF_STRINGIFY(CAF_PRIF_VERSION_MINOR));
-#endif
-#if 0
-#if ASSERTIONS // TODO: This doesn't yet work, until we fix issue #241
+#if ASSERTIONS
   CAF_IDENT(Assertions, "1");
 #else
   CAF_IDENT(Assertions, "0");
-#endif
 #endif
 CAF_IDENT(BuildTime, __DATE__ " " __TIME__ );
 CAF_IDENT(CompilerID, PLATFORM_COMPILER_IDSTR);

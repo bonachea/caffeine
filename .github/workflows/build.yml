@@ -149,7 +149,6 @@ jobs:
           - os: ubuntu-24.04
             compiler: flang
             version: 19
-            FFLAGS: -mmlir -allow-assumed-rank
             container: phhargrove/llvm-flang:19.1.1-latest
 
         # --- lfortran coverage ---
@@ -180,6 +179,20 @@ jobs:
             compiler: lfortran
             version: 0.63
             container: phhargrove/lfortran:0.63.0-1
+
+        # --- OPT coverage ---
+          - os: ubuntu-24.04
+            compiler: flang
+            version: 23
+            label: OPT
+            CONFIGURE_ARGS: --disable-debug
+            container: phhargrove/llvm-flang:23.1.0-latest
+          - os: ubuntu-22.04
+            compiler: lfortran
+            version: 0.65
+            label: OPT
+            CONFIGURE_ARGS: --disable-debug
+            container: ghcr.io/lfortran/lfortran:v0.65.0
 
         # --- PRIF-old coverage ---
           - os: ubuntu-24.04
@@ -236,6 +249,8 @@ jobs:
           - os: macos-15
             compiler: flang
             network: udp
+            label: FPM-0.10
+            FPM_VERSION: 0.10.0
           - os: macos-26
             compiler: flang
             network: udp
@@ -265,6 +280,8 @@ jobs:
             version: 23
             network: udp
             container: phhargrove/llvm-flang:23.1.0-latest
+            label: FPM-0.10
+            FPM_VERSION: 0.10.0
           - os: ubuntu-24.04
             compiler: flang
             version: latest
@@ -280,10 +297,10 @@ jobs:
       COMPILER_VERSION: ${{ matrix.version || needs.setup.outputs.BREW_FLANG_VERSION }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
-      PREFIX: install
+      FPM_VERSION: ${{ matrix.FPM_VERSION || '0.13.0' }}
       NETWORK_ARG: ${{ matrix.network && format('--network={0}',matrix.network) || '' }}
       CURL_OPTIONS: -L --retry 10 --retry-all-errors --fail 
-      GASNET_CONFIGURE_ARGS: --enable-rpath --enable-debug
+      CONFIGURE_ARGS: --prefix=install --enable-rpath --enable-debug --verbose ${{ matrix.CONFIGURE_ARGS }}
       GASNET_SPAWN_VERBOSE: 1
       GASNET_SPAWNFN: L
       GASNET_MASTERIP: 127.0.0.1
@@ -389,17 +406,25 @@ jobs:
         # Prepend Macports clang to PATH:
         echo "PATH=/opt/local/bin:${PATH}" >> "$GITHUB_ENV"
 
+    - name: Choose FPM
+      if: ${{ !matrix.brew_via_install }}
+      run: |
+        if [[ ${{ runner.arch == 'ARM64' && (runner.os == 'Linux' || env.FPM_VERSION < '0.13.0') }} == true ]] ; then
+          echo "FPM_BUILD=true" >> "$GITHUB_ENV"
+        else
+          echo "FPM_SETUP=true" >> "$GITHUB_ENV"
+        fi
+
     - name: Setup FPM
-      if: ${{ !matrix.brew_via_install && !(runner.os == 'Linux' && runner.arch == 'ARM64') }}
+      if: env.FPM_SETUP
       uses: fortran-lang/setup-fpm@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        fpm-version: latest
+        fpm-version: v${{ env.FPM_VERSION }}
 
     - name: Build FPM
-      if: ${{ !matrix.brew_via_install && runner.os == 'Linux' && runner.arch == 'ARM64' }}
+      if: env.FPM_BUILD
       run: |
-        export FPM_VERSION=0.13.0
         curl --retry 5 -LOsS https://github.com/fortran-lang/fpm/releases/download/v$FPM_VERSION/fpm-$FPM_VERSION.F90
         mkdir fpm-temp
         gfortran-14 -o fpm-temp/fpm fpm-$FPM_VERSION.F90
@@ -416,14 +441,18 @@ jobs:
         echo "CXX=g++-${COMPILER_VERSION}" >> "$GITHUB_ENV"
         # XCode 26 / gfortran bug workaround
         if [[ ${{ matrix.os }} =~ macos-26 ]] ; then
-          echo "GASNET_CONFIGURE_ARGS=$GASNET_CONFIGURE_ARGS --enable-force-posix-realtime" >> "$GITHUB_ENV"
+          echo "CONFIGURE_ARGS=$CONFIGURE_ARGS --enable-force-posix-realtime" >> "$GITHUB_ENV"
         fi
 
     - name: Set flang variables
       if: ${{ matrix.compiler == 'flang' }}
       run: |
         if [ -z "${{ matrix.brew_via_install }}" ] ; then
-          echo "FC=flang-new" >> "$GITHUB_ENV" 
+          if [[ $COMPILER_VERSION -le 19 ]] ; then
+            echo "FC=flang-new" >> "$GITHUB_ENV"
+          else
+            echo "FC=flang" >> "$GITHUB_ENV"
+          fi
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
         fi
@@ -498,11 +527,18 @@ jobs:
           find $RDIR $BDIR /usr/lib/ -name '*flang_rt*' -exec ls -al {} \; | sort | uniq
         fi
 
+    - name: Test install.sh outputs
+      run: |
+        ./install.sh --help 2>&1 | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "fortran@lbl.gov" output
+        ./install.sh --prereqs 2>&1 | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "GASNet-EX" output
+
     - name: Build Caffeine (install.sh)
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do
             eval echo "$var=\$$var"; done
-        ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --verbose \
+        ./install.sh ${CONFIGURE_ARGS} ${NETWORK_ARG} \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
         if ! grep -q 'NATIVEFLAGS=""' run-fpm.sh ; then
           echo "NATIVE_MULTI_IMAGE=true" >> "$GITHUB_ENV"
@@ -514,6 +550,8 @@ jobs:
     - name: Version info (run-fpm)
       run: |
         ./run-fpm.sh info
+        ./install/bin/ident ./install/lib/libcaffeine.a | tee output
+          test ${PIPESTATUS[0]} = 0 && grep -q "CaffeineAssertions" output
 
     - name: Run examples
       run: |
@@ -586,7 +624,7 @@ jobs:
       run: |
         for var in FC CC CXX FFLAGS CPPFLAGS CFLAGS LDFLAGS LIBS GASNET_CONFIGURE_ARGS ; do
             eval echo "$var=\$$var"; done
-        ./install.sh --prefix=${PREFIX} ${NETWORK_ARG} --enable-threads --verbose \
+        ./install.sh ${CONFIGURE_ARGS} ${NETWORK_ARG} --enable-threads \
                      ${{ inputs.install_args }} ${{ matrix.install_filter }}
         ./run-fpm.sh test --verbose -- ${{ inputs.julienne_args }}
 

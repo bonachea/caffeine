@@ -7,11 +7,12 @@ print_usage_info()
     cat <<'EOF'
 Caffeine Installation Script
 
-USAGE:
-./install.sh [--help | [--prefix=PREFIX]
+Usage: ./install.sh [OPTION]...
 
+Options:
  --help             Display this help text
- --prefix=PREFIX    Install library into 'PREFIX' directory
+ --prefix=<PREFIX>  Install libraries into <PREFIX> directory
+                    Default prefix='\$HOME/.local/bin'
  --network=<NET>    Build Caffeine to target given GASNet network conduit. 
                     <NET> should be one of:
                       smp: single-node shared-memory conduit (default)
@@ -20,9 +21,10 @@ USAGE:
                       ofi: OpenFabrics Interfaces
                       ucx: Unified Communication X
  --prereqs          Display a list of prerequisite software.
-                    Default prefix='\$HOME/.local/bin'
  --verbose          Show verbose build commands
- --yes              Assume (yes) to all prompts for non-interactive build
+ --yes              Assume "yes" to all prompts for non-interactive install
+ --enable-debug     Build Caffeine and GASNet in LOW-PERFORMANCE debug mode,
+                    disabling optimization and enabling assertions to help find defects.
  --enable-threads   Build a thread-safe Caffeine library and link to
                     thread-safe GASNet, for use in threaded do-concurrent.
 
@@ -33,54 +35,132 @@ Some influential environment variables:
   FFLAGS      Fortran compiler flags
   CC          C compiler command
   CFLAGS      C compiler flags
-  CPP         C preprocessor
   CPPFLAGS    C preprocessor flags, e.g. -I<include dir> if you have
               headers in a nonstandard directory <include dir>
   LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
               nonstandard directory <lib dir>
   LIBS        libraries to pass to the linker, e.g. -l<library>
 Use these variables to override the choices made by the installer or to help
-it to find libraries and programs with nonstandard names/locations.
+it to find programs with nonstandard names/locations.
 
 Report bugs to fortran@lbl.gov or at https://go.lbl.gov/caffeine
 
 EOF
 }
 
+# ---------------------------------------------------------------
+# Global variables
+
 GASNET_VERSION="stable"
+GASNET_SOURCE_URL="https://github.com/BerkeleyLab/gasnet/releases/download/gex-$GASNET_VERSION/GASNet-$GASNET_VERSION.tar.gz"
+ASSERT_GIT=$(awk -F'"' '/^assert =/ {print $2}' manifest/fpm.toml.template)
+ASSERT_VERSION=$(awk -F'"' '/^assert =/ {print $4}' manifest/fpm.toml.template)
+JULIENNE_GIT=$(awk -F'"' '/^julienne =/ {print $2}' manifest/fpm.toml.template)
+JULIENNE_VERSION=$(awk -F'"' '/^julienne =/ {print $4}' manifest/fpm.toml.template)
 VERBOSE=""
-GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
-GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
 YES=false
 APPEND_CFLAGS=""
 APPEND_LDFLAGS=""
+# these variables deliberately inherited from the caller environment
+GASNET_CONDUIT="${GASNET_CONDUIT:-smp}"
+GASNET_THREADMODE="${GASNET_THREADMODE:-seq}"
+GASNET_CODEMODE="${GASNET_CODEMODE:-opt}"
+GASNET_CONFIGURE_ARGS=${GASNET_CONFIGURE_ARGS:-}
+CI=${CI:-"false"} # GitHub Actions workflows set CI=true
+
+# ---------------------------------------------------------------
+# Global helper functions
 
 list_prerequisites()
 {
     cat << EOF
-Caffeine and this installer were developed with the following prerequisites.
+Caffeine's build system has the following system software prerequisites.
 If any are missing and if permission is granted, the installer will install
 the latest versions using Homebrew:
 
-  LLVM flang
-  GASNet-EX $GASNET_VERSION
+  LLVM flang (or another supported Fortran compiler)
   fpm
-  git (used by fpm to clone dependencies)
-  curl
   pkg-config
-  realpath (Homebrew coreutils)
-  GNU Make (Homebrew coreutils)
+  GNU Make
+  git + curl (used to download library dependencies)
+
+The installer will also download and build the following library dependencies,
+which are installed along with the Caffeine library to the install prefix:
+
+  GASNet-EX $GASNET_VERSION
+    - $GASNET_SOURCE_URL
+  Assert $ASSERT_VERSION 
+    - $ASSERT_GIT
+  Julienne $JULIENNE_VERSION (optional, only used for unit tests)
+    - $JULIENNE_GIT
 
 EOF
 }
 
-# GASNET_CONFIGURE_ARGS is deliberately inherited from the caller environment
-GASNET_CONFIGURE_ARGS=${GASNET_CONFIGURE_ARGS:=}
+
+# expand to an absolute path for $1, possibly including symlinks
+abspath() {
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+
+    if [[ "$1" == /* ]] ; then
+      echo "$1"
+    else
+      echo "$PWD/$1"
+    fi
+}
+
+# like `which` but always returns an absolute path or empty
+# If $2 is set then failure is suppressed in the exit code
+abswhich() {
+    local cmd_path
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+    cmd_path=$(type -P -- "$1") || return $( [[ -n "${2:-}" ]] )
+
+    echo "$(abspath $cmd_path)"
+}
+
+# expand to the absolute path of $1 with all symlinks and non-canonical elements removed
+realpath() {
+    set +x
+    if [ -z "$1" ]; then
+        echo "ERROR: expected a non-empty pathname" >&2
+        return 1
+    fi
+
+    perl -e '
+        use Cwd "abs_path";
+        my $abs = abs_path($ARGV[0]);
+        if (defined $abs) {
+            print "$abs\n";
+        } else {
+            print "ERROR: $ARGV[0] does not exist";
+            exit 1;
+        }
+    ' "$1"
+}
+
+append_gasnet_configure_arg() {
+  if [[ -z "$GASNET_CONFIGURE_ARGS" ]] ; then
+    GASNET_CONFIGURE_ARGS="\"$1\""
+  else
+    # Quoting is believed sufficient for embedded whitespace but not quotes
+    GASNET_CONFIGURE_ARGS+=" \"${1//\"/\\\"}\""
+  fi
+}
+
+# ---------------------------------------------------------------
+# Command line parsing
 
 while [ "$1" != "" ]; do
     orig_arg="$1"
-    PARAM=$(echo "$1" | awk -F= '{print $1}')
-    VALUE=$(echo "$1" | awk -F= '{print $2}')
+    PARAM=$(awk -F= '{print $1}' <<< $1)
+    VALUE=$(awk -F= '{print $2}' <<< $1)
     case $PARAM in
         -h | --help)
             print_usage_info
@@ -113,44 +193,61 @@ while [ "$1" != "" ]; do
         --enable-threads)  GASNET_THREADMODE=par ;;
         --disable-threads) GASNET_THREADMODE=seq ;;
 
-        *)
-            # We pass the unmodified argument to GASNet configure
-            # Quoting is believed sufficient for embedded whitespace but not quotes
-            GASNET_CONFIGURE_ARGS+="${GASNET_CONFIGURE_ARGS+ }\"${orig_arg//\"/\\\"}\""
+        --enable-debug)  GASNET_CODEMODE=debug ; append_gasnet_configure_arg "$orig_arg" ;;
+        --disable-debug) GASNET_CODEMODE=opt ;   append_gasnet_configure_arg "$orig_arg" ;;
+
+        *) # Pass unrecognized args unmodified to GASNet configure
+            append_gasnet_configure_arg "$orig_arg"
             ;;
     esac
     shift
 done
 
+if [[ -n "$VERBOSE" ]] ; then
+( set +x
+  echo Command-line arguments:
+  echo PREFIX=$PREFIX
+  echo GASNET_CONDUIT=$GASNET_CONDUIT
+  echo GASNET_CONFIGURE_ARGS=$GASNET_CONFIGURE_ARGS
+  echo GASNET_THREADMODE=$GASNET_THREADMODE
+  echo GASNET_CODEMODE=$GASNET_CODEMODE
+)
+fi
+
+# ---------------------------------------------------------------
 # Early check for pre-installed Homebrew
+
 BREW="${BREW:-brew}"
-if command -v "$BREW" > /dev/null 2>&1; then
-  BREW_PREFIX=`$BREW --prefix || exit 0`
+if type -P "$BREW" > /dev/null 2>&1; then
+  BREW_PREFIX=$($BREW --prefix || exit 0)
   if [ -z ${BREW_PREFIX:+x} ] || [ ! -d "$BREW_PREFIX" ] ; then
     echo Warning: Failed to detect Homebrew prefix
     BREW_PREFIX=
   fi
 fi
 
+# ---------------------------------------------------------------
+# Initial compiler identification
+
 if [ -z ${FC:+x} ] || [ -z ${CC:+x} ]; then
-  if command -v flang > /dev/null 2>&1; then
-    FC=`which flang`
+  if type -P flang > /dev/null 2>&1; then
+    FC=$(abswhich flang)
     echo "Setting FC=$FC"
     if [ -n "$BREW_PREFIX" ] && [[ $FC =~ $BREW_PREFIX ]] ; then
       # We are using Homebrew flang, so prefer Homebrew clang/clang++
       export PATH="$BREW_PREFIX/opt/llvm/bin:$PATH"
     fi
   fi
-  if command -v clang > /dev/null 2>&1; then
-    CC=`which clang`
+  if type -P clang > /dev/null 2>&1; then
+    CC=$(abswhich clang)
     echo "Setting CC=$CC"
   fi
 fi
-if [ -n "$CC" ] && ! command -v "$CC" > /dev/null 2>&1; then
+if [ -n "${CC:+x}" ] && ! type -P "$CC" > /dev/null 2>&1; then
   echo "CC=$CC not found. If you don't yet have a C compiler, please leave environment variable CC unset."
   exit 1
 fi
-if [ -n "$FC" ] && ! command -v "$FC" > /dev/null 2>&1; then
+if [ -n "${FC:+x}" ] && ! type -P "$FC" > /dev/null 2>&1; then
   echo "FC=$FC not found. If you don't yet have a Fortran compiler, please leave environment variable FC unset."
   exit 1
 fi
@@ -162,50 +259,53 @@ if [ -z ${CXX:+x} ] && [ -n "$CC" ] ; then
   else
     CXX_guess=g++
   fi
-  if [[ $CC =~ (-[0-9]+)$ ]] ; then 
+  if [[ $CC =~ (-[0-9a-z-]+)$ ]] ; then 
     CXX_guess=${CXX_guess}${BASH_REMATCH[0]} 
   fi
-  if command -v $CXX_guess > /dev/null 2>&1; then
-    CXX=`which $CXX_guess`
+  if type -P $CXX_guess > /dev/null 2>&1; then
+    CXX=$(abswhich $CXX_guess)
     echo "Setting CXX=$CXX"
   fi
 fi
 
 set -u # error on use of undefined variable
 
-if command -v pkg-config > /dev/null 2>&1; then
-  PKG_CONFIG=`which pkg-config`
-fi
+# ---------------------------------------------------------------
+# Dependency identification
+
+# allow overrides via envvar
+PKG_CONFIG=$(abswhich ${PKG_CONFIG:-pkg-config} silent)
   
-if command -v realpath > /dev/null 2>&1; then
-  REALPATH=`which realpath`
-fi
+MAKE=$(abswhich ${MAKE:-gmake} silent) # prefer 'gmake' over 'make'
+MAKE=$(abswhich ${MAKE:-make} silent)
 
-if command -v make > /dev/null 2>&1; then
-  MAKE=`which make`
-fi
+FPM=$(abswhich ${FPM:-fpm} silent)
 
-if command -v fpm > /dev/null 2>&1; then
-  FPM=`which fpm`
-fi
-
-if ! command -v git > /dev/null 2>&1; then
-  echo "git not found. Building Caffeine requires fpm, which uses git to download dependencies."
+# FPM disallows override of the git command, so don't allow it here either
+# Homebrew requires git and curl to operate, so cannot be used to provide them when they are missing
+GIT=$(abswhich git silent)
+if [[ -z "$GIT" ]] ; then
+  echo "git not found. Building Caffeine requires git to download dependencies."
   echo "Please install git, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
 
-if ! command -v curl > /dev/null 2>&1; then
+# FPM disallows override of the curl command, so don't allow it here either
+CURL=$(abswhich curl silent)
+if [[ -z "$CURL" ]] ; then
   echo "curl not found. Please install curl, ensure it is in your PATH, and rerun ./install.sh"
   exit 1
 fi
+
+# ---------------------------------------------------------------
+# Homebrew support
 
 ask_permission_to_use_homebrew()
 {
   cat << EOF
 
 Either one or more of the environment variables FC and CC are unset or
-one or more of the following packages are not in the PATH: pkg-config, realpath, make, fpm.
+one or more of the following packages are not in the PATH: pkg-config, make, fpm.
 If you grant permission to install prerequisites, you will be prompted before each installation.
 
 Press 'Enter' to choose the square-bracketed default answer:
@@ -228,14 +328,8 @@ EOF
 ask_permission_to_install_homebrew_package()
 {
   echo ""
-  if [ ! -z ${2+x} ]; then
-    echo "Homebrew installs $1 collectively in one package named '$2'."
-    echo ""
-  fi
   printf "Is it ok to use Homebrew to install $1? [yes] "
 }
-
-CI=${CI:-"false"} # GitHub Actions workflows set CI=true
 
 exit_if_user_declines()
 {
@@ -251,8 +345,6 @@ exit_if_user_declines()
   if [ -n "$answer" -a "$answer" != "y" -a "$answer" != "Y" -a "$answer" != "Yes" -a "$answer" != "YES" -a "$answer" != "yes" ]; then
     echo "Installation declined."
     case ${1:-} in  
-      *GASNet*) 
-        echo "Please ensure the $pkg.pc file is in $PKG_CONFIG_PATH and then rerun './install.sh'." ;;
       *FC*) 
         echo "To use compilers other than Homebrew-installed LLVM flang and clang,"
         echo "please set the FC and CC environment variables and rerun './install.sh'." ;;
@@ -265,29 +357,27 @@ exit_if_user_declines()
 }
 
 DEPENDENCIES_DIR="build/dependencies"
-if [ ! -d $DEPENDENCIES_DIR ]; then
-  mkdir -p $DEPENDENCIES_DIR
-fi
+mkdir -p $DEPENDENCIES_DIR
 
-if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${REALPATH:+x} ] || [ -z ${MAKE:+x} ] || [ -z ${FPM:+x} ] ; then
+if [ -z ${FC:+x} ] || [ -z ${CC:+x} ] || [ -z ${PKG_CONFIG:+x} ] || [ -z ${MAKE:+x} ] || [ -z ${FPM:+x} ] ; then
 
   ask_permission_to_use_homebrew 
   exit_if_user_declines "brew"
 
-  if ! command -v $BREW > /dev/null 2>&1; then
+  if ! type -P $BREW > /dev/null 2>&1; then
 
     ask_permission_to_install_homebrew
     exit_if_user_declines "brew"
 
-    curl -L https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o $DEPENDENCIES_DIR/install-homebrew.sh --create-dirs
+    $CURL -L https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o $DEPENDENCIES_DIR/install-homebrew.sh --create-dirs
     chmod u+x $DEPENDENCIES_DIR/install-homebrew.sh
 
     if [ -p /dev/stdin ] && [ $CI = false ]; then
 	   cat << EOF
 
-Pipe detected.  Installing Homebrew requires sudo privileges, which most likely will
-not work if you are installing non-interactively, e.g., via 'yes | ./install.sh'.
-To install Caffeine non-interactiely, please rerun the Caffeine installer after
+ERROR: Pipe detected.  Installing Homebrew requires sudo privileges,
+which is unlikely to work if you are installing non-interactively.
+To install Caffeine non-interactively, please rerun the Caffeine installer after
 executing the following command to install Homebrew:
 "./$DEPENDENCIES_DIR/install-homebrew.sh"
 EOF
@@ -303,7 +393,7 @@ EOF
     fi
   fi
 
-  BREW_PREFIX=`$BREW --prefix || exit 0`
+  BREW_PREFIX=$($BREW --prefix || exit 0)
   if [ -z ${BREW_PREFIX:+x} ] || [ ! -d "$BREW_PREFIX" ] ; then
     echo Failed to detect Homebrew prefix
     echo 1
@@ -319,62 +409,75 @@ EOF
 
     # Homebrew does not inject clang/clang++ into PATH on macOS
     export PATH="$BREW_PREFIX/opt/llvm/bin:$PATH"
-    CC=`which clang`
-    CXX=`which clang++`
-    FC=`which flang-new`
-    for tool in $CC $CXX $FC ; do
-      if ! command -v $tool > /dev/null 2>&1 ; then
-        echo Failed to detect Homebrew compiler install at $tool
+    CC="clang"
+    CXX="clang++"
+    FC="flang-new"
+    for tool in CC CXX FC ; do
+      if ! type -P ${!tool} > /dev/null 2>&1 ; then
+        eval echo ERROR: Failed to detect Homebrew compiler install at ${!tool}
         exit 1
+      else
+        eval $tool=$(abswhich ${!tool})
       fi
     done
   fi
 
-  if [ -z ${REALPATH:+x} ] || [ -z ${MAKE:+x} ] ; then
-    ask_permission_to_install_homebrew_package "'realpath' and 'make'" "coreutils"
-    exit_if_user_declines "realpath and make"
-    $BREW install coreutils
-    REALPATH=`which realpath`
-    MAKE=`which make`
+  if [ -z ${MAKE:+x} ] ; then
+    ask_permission_to_install_homebrew_package "'make'"
+    exit_if_user_declines "make"
+    $BREW install make
+    MAKE=$(abswhich gmake)
   fi
 
   if [ -z ${PKG_CONFIG:+x} ]; then
     ask_permission_to_install_homebrew_package "'pkg-config'"
     exit_if_user_declines "pkg-config"
     $BREW install pkg-config
-    PKG_CONFIG=`which pkg-config`
+    PKG_CONFIG=$(abswhich pkg-config)
   fi
 
   if [ -z ${FPM:+x} ] ; then
     ask_permission_to_install_homebrew_package "'fpm'"
     exit_if_user_declines "fpm"
     $BREW install fpm
-    FPM=`which fpm`
+    FPM=$(abswhich fpm)
   fi
 fi
 
+# ---------------------------------------------------------------
+# Install location and compiler finalization
+
 PREFIX=${PREFIX:-"${HOME}/.local"}
 mkdir -p "$PREFIX"
-PREFIX=`$REALPATH "$PREFIX"`
+PREFIX=$(abspath "$PREFIX")
 echo "PREFIX=$PREFIX"
 
+PKG_CONFIG_DIR="$PREFIX/lib/pkgconfig"
+mkdir -p "$PKG_CONFIG_DIR"
 if [ -z ${PKG_CONFIG_PATH:+x} ]; then
   PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 else
   PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 fi
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH
 
-FPM_FC="$($REALPATH $(command -v $FC))"
-if [[ $FPM_FC == *flang* ]]; then
-  # issue #358: pattern must only match the end, to avoid false positives on directory components
-  FPM_FC=${FPM_FC/%flang-[1-9][0-9]/flang-new}
+FC="$(abswhich $FC)"
+if [[ $(basename $FC) == *flang* ]]; then
+  # old versions of fpm rely on basename 'flang-new' to recognize LLVM flang,
+  # so look for a corresponding symlink to the same compiler
+  TRY_FC=${FC/%flang-[1-9][0-9]/flang-new}
+  TRY_FC=${TRY_FC/%flang/flang-new}
+  if [[ -x $TRY_FC ]] && [[ $(realpath $TRY_FC) == $(realpath $FC) ]] ; then
+    FC="$(abswhich $TRY_FC)"
+  fi
 fi
-FPM_CC="$($REALPATH $(command -v $CC))"
+CC="$(abswhich $CC)"
+CXX="$(abswhich $CXX)"
 
 if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   # fixups necessitated by using Brew flang:
-  if [[ $FPM_FC =~ flang ]] && [[ $FPM_FC =~ $BREW_PREFIX ]] ; then
+  if [[ $FC =~ flang ]] && [[ $FC =~ $BREW_PREFIX ]] ; then
     # workaround issue #228: clang cannot find Homebrew flang's C header
     APPEND_CFLAGS="-I$(dirname $(find "$BREW_PREFIX/Cellar/flang" -name ISO_Fortran_binding.h | head -1))"
 
@@ -385,36 +488,97 @@ if [ "${BREW_PREFIX:-unset}" != unset ] ; then
   fi
 fi
 
-ask_package_permission()
-{
-  cat << EOF
+# ---------------------------------------------------------------
+# Fortran Flag computation
 
-$1 not found in $2
+# save Fortran flag user inputs
+user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
 
-Press 'Enter' for the square-bracketed default answer:
-EOF
-  printf "Is it ok to download and install $1? [yes] "
-}
+# compiler-specific flag defaults
+FFLAGS="-g"
+FFLAGS_debug="-O0"
+FFLAGS_opt="-O3"
+compiler_version=$($FC --version)
+supported_version=
+if [[ $compiler_version =~ 'flang' ]]; then
+  # use defaults
+  supported_version=$(awk 'NR==1 && match($0, /version [0-9]+\.[0-9]+/){ v=substr($0, RSTART+8, RLENGTH-8); if (v+0 >= 19) print v; }' <<< "$compiler_version")
+  # flang-19 and older need extra args:
+  awk "BEGIN { exit ($supported_version < 20) }" || FFLAGS+=" -mmlir -allow-assumed-rank"
+elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
+  FFLAGS="-g -ffree-line-length-0 -Wno-unused-dummy-argument"
+  supported_version=$(awk 'NR==1 && match($0, /) [0-9]+\.[0-9]+/){ v=substr($0, RSTART+2, RLENGTH-2); if (v+0 >= 13) print v; }' <<< "$compiler_version")
+elif [[ $compiler_version =~ 'LFortran' ]]; then
+  # LFortran -g deliberately omitted: not always available, and leads to bizarre errors when it's not
+  FFLAGS="--cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
+  supported_version=$(awk 'NR==1 && match($0, /version: [0-9]+\.[0-9]+/){ v=substr($0, RSTART+9, RLENGTH-9); if (v+0 >= 0.63) print v; }' <<< "$compiler_version")
+else # unknown compiler
+  FFLAGS_opt=-O2
+fi
+if [[ -z "$supported_version" ]] ; then
+  echo "WARNING: Failed to detect a recognized Fortran compiler."
+  echo 
+  echo "$FC --version reported the following:"
+  echo "$compiler_version"
+  echo 
+  echo "This does not appear to be one of the compiler+version combinations"
+  echo "officially supported by Caffeine (see README.md) and might not work."
+  printf "Are you certain you wish to continue installation with $FC? [yes] "
+  exit_if_user_declines "FC"
+fi
+
+if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+  FFLAGS="$FFLAGS_debug $FFLAGS"
+else
+  FFLAGS="$FFLAGS_opt $FFLAGS"
+fi
+
+# enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
+FFLAGS+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
+# enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
+FFLAGS+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
+
+if [[ $GASNET_THREADMODE == "par" ]] ; then
+  FFLAGS+=" -DCAF_THREAD_SAFE"
+fi
+
+GASNET_CONDUIT_UPPER=$(tr '[:lower:]' '[:upper:]' <<<$GASNET_CONDUIT)
+FFLAGS+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
+
+# Append user flags last to allow command-line overrides
+FFLAGS+=" $user_compiler_flags"
+
+if ! [[ "$FFLAGS " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
+  # assertions not explicitly enabled or disabled on the command-line
+  # default assertions based on codemode (--enable-debug)
+  if [[ "$GASNET_CODEMODE" == "debug" ]] ; then 
+    FFLAGS+=" -DASSERTIONS"
+  fi
+fi
+
+# Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
+for opt in $FFLAGS; do
+  case "$opt" in
+    -DASSERTIONS* | -UASSERTIONS* | -DFORCE_PRIF_* | -UFORCE_PRIF_*)
+       APPEND_CFLAGS+=" $opt"
+       ;;
+  esac
+done
+
+# ---------------------------------------------------------------
+# GASNet identification/build
 
 pkg="gasnet-$GASNET_CONDUIT-$GASNET_THREADMODE"
-export PKG_CONFIG_PATH
 
 if ! $PKG_CONFIG $pkg ; then
-  ask_package_permission "GASNet-EX" "PKG_CONFIG_PATH"
-  exit_if_user_declines "GASNet-EX"
-
   GASNET_TAR_FILE="$DEPENDENCIES_DIR/GASNet-$GASNET_VERSION.tar.gz"
-  GASNET_SOURCE_URL="https://github.com/BerkeleyLab/gasnet/releases/download/gex-$GASNET_VERSION/GASNet-$GASNET_VERSION.tar.gz"
-  if [ ! -d $DEPENDENCIES_DIR ]; then
-    mkdir -pv $DEPENDENCIES_DIR
-  fi
   GASNET_DIR=$DEPENDENCIES_DIR/GASNet-$GASNET_VERSION
   if [ -d $GASNET_DIR ]; then
     # clean any existing GASNet build dir we are overwriting
     rm -Rf $GASNET_DIR
   fi
   
-  curl -L $VERBOSE --retry 10 --retry-all-errors --fail $GASNET_SOURCE_URL -o $GASNET_TAR_FILE
+  $CURL -L $VERBOSE --retry 10 --retry-all-errors --fail $GASNET_SOURCE_URL -o $GASNET_TAR_FILE
   tar xvzf $GASNET_TAR_FILE -C $DEPENDENCIES_DIR
   
   ( 
@@ -446,106 +610,90 @@ exit_if_pkg_config_pc_file_missing()
 
 exit_if_pkg_config_pc_file_missing "$pkg"
 
-GASNET_LDFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_LDFLAGS`"
-GASNET_LIBS="`$PKG_CONFIG $pkg --variable=GASNET_LIBS`"
-GASNET_CC="`$PKG_CONFIG $pkg --variable=GASNET_CC`"
-GASNET_CFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_CFLAGS`"
-GASNET_CPPFLAGS="`$PKG_CONFIG $pkg --variable=GASNET_CPPFLAGS`"
+GASNET_LDFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_LDFLAGS)
+GASNET_LIBS=$($PKG_CONFIG $pkg --variable=GASNET_LIBS)
+GASNET_CC=$($PKG_CONFIG $pkg --variable=GASNET_CC)
+GASNET_CFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_CFLAGS)
+GASNET_CPPFLAGS=$($PKG_CONFIG $pkg --variable=GASNET_CPPFLAGS)
 
-# Check whether GASNet was installed using Spack. If yes, bail out.
-# Note: relies on the fact that most Spack installations have "opt/spack"
-#       in the directory path, and assumes that the first directory returned
-#       by pkg-config contains the GASNet lib directory
-GASNET_LIBDIR="$(echo $GASNET_LIBS | awk '{print $1};')"
+# Relies on the first directory in GASNET_LIBS is the GASNet lib directory
+GASNET_LIBDIR=$(awk '{print $1};' <<< $GASNET_LIBS)
 GASNET_LIBDIR=${GASNET_LIBDIR#-L}
-case "$GASNET_LIBDIR" in
-  *spack* )
-	cat << EOF
+
+# Check whether GASNet appears to be a Spack install. If yes, bail out.
+# Note: most Spack installations have "opt/spack" in the directory path.
+if [[ $GASNET_LIBDIR == *spack* ]] && \
+   [[ $(realpath $GASNET_LIBDIR) != $(realpath "$PREFIX/lib") ]]; then
+  cat << EOF
 ***NOTICE***: The GASNet library built by Spack is ONLY intended for
 unit-testing purposes, and is generally UNSUITABLE FOR PRODUCTION USE.
 The RECOMMENDED way to build GASNet is as an embedded library as configured
 by the higher-level client runtime package (i.e. Caffeine), including
 system-specific configuration. Exiting install.sh
 EOF
-    exit 1
-    ;;
-  * )
-    GASNET_PREFIX=$(dirname $GASNET_LIBDIR)
-    if [ ! -r "$GASNET_PREFIX/include/gasnetex.h" ] ; then
-      echo "ERROR: Failed to detect GASNet install prefix from $GASNET_LIBS"
-      exit 1
-    fi
-    ;; 
-esac
+  exit 1
+fi
+GASNET_PREFIX=$(dirname $GASNET_LIBDIR)
+if [ ! -r "$GASNET_PREFIX/include/gasnetex.h" ] ; then
+  echo "ERROR: Failed to detect GASNet install prefix from $GASNET_LIBS"
+  exit 1
+fi
 
 # Strip compiler flags
 # Warning: This assumes the full path doesn't contain any spaces!
-GASNET_CC_STRIPPED="$(echo $GASNET_CC | awk '{print $1};')"
-GASNET_CC_REAL="$($REALPATH $GASNET_CC_STRIPPED)"
-
-if [ "$GASNET_CC_REAL" != "$FPM_CC" ]; then 
-  echo "GASNET_CC=$GASNET_CC_REAL" and  "FPM_CC=$FPM_CC don't match"
+GASNET_CC_STRIPPED=$(awk '{print $1};' <<< $GASNET_CC)
+if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ]; then 
+  echo "ERROR: C Compiler mismatch: GASNET_CC=$(realpath $GASNET_CC_STRIPPED) and CC=$(realpath $CC) don't match"
   exit 1;
 fi
+
+# ---------------------------------------------------------------
+# Output file generation
 
 FPM_TOML="fpm.toml"
 rm -f $FPM_TOML
 echo "# DO NOT EDIT OR COMMIT -- Created by caffeine/install.sh" > $FPM_TOML
 cat manifest/fpm.toml.template >> $FPM_TOML
-GASNET_LIB_LOCATIONS=`echo $GASNET_LIBS | awk '{locs=""; for(i = 1; i <= NF; i++) if ($i ~ /^-L/) {locs=(locs " " $i);}; print locs; }'`
-GASNET_LIB_NAMES=`echo $GASNET_LIBS | awk '{names=""; for(i = 1; i <= NF; i++) if ($i ~ /^-l/) {names=(names " " $i);}; print names; }' | sed 's/-l//g'`
+GASNET_LIB_LOCATIONS=$(awk '{locs=""; for(i = 1; i <= NF; i++) if ($i ~ /^-L/) {locs=(locs " " $i);}; print locs; }' <<< $GASNET_LIBS)
+GASNET_LIB_NAMES=$(awk '{names=""; for(i=1; i<=NF; i++) if(sub(/^-l/, "", $i)) names=(names ? names " " : "") $i; print names}' <<< $GASNET_LIBS)
 if [[ $GASNET_CONDUIT == "udp" ]] ; then
   GASNET_LIB_NAMES+=" stdc++" # udp-conduit requires C++ libraries
 fi
-FPM_TOML_LINK_ENTRY="link = [\"$(echo ${GASNET_LIB_NAMES} | sed 's/ /", "/g')\"]"
+FPM_TOML_LINK_ENTRY="link = [\"$(sed 's/ /", "/g' <<< $GASNET_LIB_NAMES)\"]"
 echo "${FPM_TOML_LINK_ENTRY}" >> $FPM_TOML
 
-CAFFEINE_PC="$PREFIX/lib/pkgconfig/caffeine.pc"
-cat << EOF > $CAFFEINE_PC
-CAFFEINE_FPM_LDFLAGS=$GASNET_LDFLAGS $GASNET_LIB_LOCATIONS $APPEND_LDFLAGS
-CAFFEINE_FPM_FC=$FPM_FC
-CAFFEINE_FPM_CC=$GASNET_CC
-CAFFEINE_FPM_CFLAGS=$GASNET_CFLAGS $GASNET_CPPFLAGS $APPEND_CFLAGS
+# flag outputs
+CAFFEINE_CFLAGS="$GASNET_CFLAGS $GASNET_CPPFLAGS $APPEND_CFLAGS"
+CAFFEINE_LDFLAGS="$GASNET_LDFLAGS $GASNET_LIB_LOCATIONS $APPEND_LDFLAGS"
+
+CAFFEINE_PC="caffeine-$GASNET_CONDUIT-$GASNET_THREADMODE.pc"
+cat << EOF > "$PKG_CONFIG_DIR/$CAFFEINE_PC"
+# WARNING: This file is automatically generated - do NOT edit directly
+# Copyright 2026, The Regents of the University of California
+# Terms of use are as specified in license.txt
+
+CAFFEINE_FC=$FC
+CAFFEINE_CC=$CC
+CAFFEINE_FFLAGS=$FFLAGS
+CAFFEINE_CFLAGS=$APPEND_CFLAGS
+CAFFEINE_LDFLAGS="-L$PREFIX/lib $APPEND_LDFLAGS"
+CAFFEINE_NETWORK=$GASNET_CONDUIT
+CAFFEINE_THREADMODE=$GASNET_THREADMODE
+CAFFEINE_CODEMODE=$GASNET_CODEMODE
+
 Name: caffeine
 Description: The CoArray Fortran Framework of Efficient Interfaces to Network Environments (Caffeine) implements the Parallel Runtime Interface for Fortran (PRIF), providing runtime support for multi-image features in modern Fortran compilers.
 URL: https://go.lbl.gov/caffeine
 Version: 0.8.1
+Requires: gasnet-$GASNET_CONDUIT-$GASNET_THREADMODE
+Cflags: \${CAFFEINE_CFLAGS}
+Libs: \${CAFFEINE_LDFLAGS} -lcaffeine-$GASNET_CONDUIT-$GASNET_THREADMODE
 EOF
+ln -sf "$CAFFEINE_PC" "$PKG_CONFIG_DIR/caffeine-$GASNET_CONDUIT.pc"
+ln -sf "$CAFFEINE_PC" "$PKG_CONFIG_DIR/caffeine.pc"
 
 exit_if_pkg_config_pc_file_missing "caffeine"
 
-user_compiler_flags="${CPPFLAGS:-} ${FFLAGS:-}"
-
-compiler_version=$($FPM_FC --version)
-if [[ $compiler_version =~ 'flang' ]]; then
-  compiler_flag="-g -O3"
-elif [[ $compiler_version =~ 'GNU Fortran' ]]; then
-  compiler_flag="-g -O3 -ffree-line-length-0 -Wno-unused-dummy-argument"
-elif [[ $compiler_version =~ 'LFortran' ]]; then
-  compiler_flag="-O3 --cpp --realloc-lhs-arrays --separate-compilation --no-style-suggestions --implicit-argument-casting"
-else # unknown compiler
-  compiler_flag="-g -O2"
-  echo "WARNING: Failed to detect a recognized Fortran compiler"
-fi
-# enable Assert's multi-image support with PRIF callbacks provided by libcaffeine
-compiler_flag+=" -DASSERT_MULTI_IMAGE -DASSERT_PARALLEL_CALLBACKS"
-# enable Julienne's multi-image support with PRIF callbacks provided by julienne-driver
-compiler_flag+=" -DHAVE_MULTI_IMAGE_SUPPORT -DJULIENNE_PARALLEL_CALLBACKS"
-
-if ! [[ "$user_compiler_flags " =~ -[DU]ASSERTIONS[=\ ] ]] ; then 
-  # default to enabling assertions, unless the command line sets a relevant flag
-  compiler_flag+=" -DASSERTIONS"
-fi
-
-if [[ $GASNET_THREADMODE == "par" ]] ; then
-  compiler_flag+=" -DCAF_THREAD_SAFE"
-fi
-
-GASNET_CONDUIT_UPPER=$(tr '[:lower:]' '[:upper:]' <<<$GASNET_CONDUIT)
-compiler_flag+=" -DCAF_NETWORK_$GASNET_CONDUIT_UPPER"
-
-# Should come last to allow command-line overrides
-compiler_flag+=" $user_compiler_flags"
 
 case $GASNET_CONDUIT in
   ibv|ofi|ucx) 
@@ -558,7 +706,7 @@ case $GASNET_CONDUIT in
     GASNET_RUNNER_ARG="${GASNET_RUNNER_ARG:-mpirun -n \${CAF_IMAGES:-2}}"
   ;;
   smp)
-    GASNET_RUNNER_ARG="${GASNET_RUNNER_ARG:-env GASNET_PSHM_NODES=\${CAF_IMAGES:-\${GASNET_PSHM_NODES:-}}}"
+    GASNET_RUNNER_ARG="${GASNET_RUNNER_ARG:-env GASNET_PSHM_NODES=\${CAF_IMAGES:-\${GASNET_PSHM_NODES:-2}}}"
   ;;
   *)
     GASNET_RUNNER_ARG="${GASNET_RUNNER_ARG:-}"
@@ -567,26 +715,32 @@ esac
 
 RUN_FPM_SH="run-fpm.sh"
 cat << EOF > $RUN_FPM_SH
-#!/bin/sh
+#!/bin/bash
 #-- DO NOT EDIT -- created by caffeine/install.sh
-FPM="${FPM}"
-FC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_FC`"
-CC="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CC`"
+FPM="$FPM"
+FC="$FC"
+CC="$CC"
 NATIVEFLAGS=""
-RAWFLAGS="$compiler_flag"
+RAWFLAGS="$FFLAGS"
 FFLAGS="\$NATIVEFLAGS \$RAWFLAGS"
-CFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_CFLAGS`"
-LDFLAGS="`$PKG_CONFIG caffeine --variable=CAFFEINE_FPM_LDFLAGS`"
-FPM_DRIVER=\${FPM_DRIVER:-\`realpath \$0\`}
+CFLAGS="$CAFFEINE_CFLAGS"
+LDFLAGS="$CAFFEINE_LDFLAGS"
+FPM_DRIVER=\${FPM_DRIVER:-\$([[ "\$0" == /* ]] && echo "\$0" || echo "\$PWD/\$0")}
 export FPM_DRIVER
 fpm_sub_cmd=\$1; shift
-if echo "--help -help --version -version --list -list new update list clean publish" | grep -w -q -e "\$fpm_sub_cmd" ; then
+if [[ "\$fpm_sub_cmd" == "install" && "\$1" != "--list" ]] ; then
+  echo "ERROR: Please use install.sh to install Caffeine."
+  exit 1
+fi
+case "\$fpm_sub_cmd" in
+--help|-help|help|--version|-version|--list|-list|new|update|list|clean|publish)
   set -x
   exec "\$FPM" "\$fpm_sub_cmd" "\$@"
-elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+build|test|run|install)
   sed -i.bak 's/^link = .*\$/$FPM_TOML_LINK_ENTRY/' $FPM_TOML
   rm -f $FPM_TOML.bak # issue 282: this is the only portable way to use sed -i
-  if test -n "$GASNET_RUNNER_ARG" && echo "test run" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  if [[ -n "$GASNET_RUNNER_ARG" && " test run " == *" \$fpm_sub_cmd "* ]]; then
     set -- "--runner=$GASNET_RUNNER_ARG" "\$@"
   fi
   set -x
@@ -598,17 +752,19 @@ elif echo "build test run install" | grep -w -q -e "\$fpm_sub_cmd" ; then
   --c-flag "\$CFLAGS" \\
   --link-flag "\$LDFLAGS" \\
   "\$@"
-elif echo "set-native" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+set-native)
   set -e
   mkdir -p build
   cmd="\$FC \$RAWFLAGS app/print-native-flags.F90 -o build/print-native-flags $APPEND_LDFLAGS"
   eval \$cmd || (set -x ; eval \$cmd)
-  NATIVEFLAGS="\`build/print-native-flags\`"
+  NATIVEFLAGS=\$(build/print-native-flags)
   rm -f build/print-native-flags
   sed -i.bak 's/^NATIVEFLAGS=.*\$/NATIVEFLAGS="'"\$NATIVEFLAGS"'"/' \$FPM_DRIVER
   rm -f \$FPM_DRIVER.bak
   echo NATIVEFLAGS=\"\$NATIVEFLAGS\"
-elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
+  ;;
+info)
   LINE=--------------------------------------------------
   SRCDIR=\$(dirname \$FPM_DRIVER)
   GASNETDIR="$GASNET_PREFIX"
@@ -616,21 +772,19 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   echo \$LINE
   echo Version info:
   echo Caffeine \$(grep version \$SRCDIR/fpm.toml)
-  if test -d \$SRCDIR/.git ; then
+  if [[ -d \$SRCDIR/.git ]]; then
     GITVER=\$( ( cd \$SRCDIR && git describe --long --dirty --always ) 2> /dev/null)
-    if test -n "\$GITVER"; then
-      echo "  git describe: \$GITVER"
-    fi
+    [[ -n "\$GITVER" ]] && echo "  git describe: \$GITVER"
   fi
-  if test -r "\$GASNETCONFIG"; then
+  if [[ -r "\$GASNETCONFIG" ]]; then
     echo GASNet version \$(grep GASNETI_RELEASE_VERSION \$GASNETCONFIG | cut -d' ' -f3-)
   fi
   grep -e assert -e julienne \$SRCDIR/fpm.toml
   echo \$LINE
   echo Platform info:
   uname -a
-  if test -r /etc/os-release ; then grep -e NAME -e VERSION /etc/os-release  ; fi
-  if test -x /usr/bin/sw_vers ; then /usr/bin/sw_vers ; fi
+  [[ -r /etc/os-release ]] && grep -e NAME -e VERSION /etc/os-release
+  [[ -x /usr/bin/sw_vers ]] && /usr/bin/sw_vers
   echo \$LINE
   echo Install settings:
   echo ID="\$(date) \$(whoami)"
@@ -639,13 +793,14 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
   echo FC=\$FC
   echo CC=\$CC
   echo FFLAGS=\$FFLAGS
-  echo CFLAGS=\$FFLAGS
+  echo CFLAGS=\$CFLAGS
   echo LDFLAGS=\$LDFLAGS
   grep -e link \$SRCDIR/fpm.toml
   echo GASNET=\$GASNETDIR
   echo GASNET_CONDUIT=$GASNET_CONDUIT
+  echo GASNET_CODEMODE=$GASNET_CODEMODE
   echo GASNET_THREADMODE=$GASNET_THREADMODE
-  if test -r "\$GASNETCONFIG"; then
+  if [[ -r "\$GASNETCONFIG" ]]; then
     grep -e GASNETI_BUILD_ID -e GASNETI_CONFIGURE_ARGS \$GASNETCONFIG | cut -d' ' -f2-
   fi
   for tool in FPM FC CC ; do
@@ -659,15 +814,19 @@ elif echo "info" | grep -w -q -e "\$fpm_sub_cmd" ; then
     \$toolval --version
   done
   echo \$LINE
-else
+  ;;
+*)
   echo "ERROR: Unrecognized fpm subcommand \$fpm_sub_cmd"
   \$FPM list
   exit 1
-fi
+esac
 EOF
 chmod u+x $RUN_FPM_SH
 # for backwards-compatibility of instructions/scripting:
 ( cd build && ln -f -s ../$RUN_FPM_SH run-fpm.sh )
+
+# ---------------------------------------------------------------
+# Caffeine build
 
 ./$RUN_FPM_SH set-native
 
@@ -681,6 +840,9 @@ chmod u+x $RUN_FPM_SH
   echo "   https://github.com/berkeleylab/caffeine/issues"
   exit 1
 )
+
+# ---------------------------------------------------------------
+# Caffeine installation
 
 LIBCAFFEINE_DST=libcaffeine-$GASNET_CONDUIT-$GASNET_THREADMODE.a
 LIBCAFFEINE_SRC=$(./$RUN_FPM_SH install --list 2>/dev/null | grep libcaffeine | cut -d' ' -f2)
