@@ -648,4 +648,5 @@ jobs:
           test ${PIPESTATUS[0]} = 0 && grep -q "CaffeineAssertions" output
         pkg-config --validate install/lib/pkgconfig/caffeine.pc | tee output
           test ${PIPESTATUS[0]} = 0 && ! grep -q -v pkgconfig/gasnet output
+        make -C app prif
 

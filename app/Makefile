@@ -1,5 +1,4 @@
-# This Makefile is for internal testing use only and not intended for end-users
-# To run this test with Caffeine, please execute `./run-fpm.sh run` in the top-level directory
+# See 'make all' for instructions
 
 # overridable settings
 NUM_IMAGES?=4
@@ -7,22 +6,75 @@ FLAGS=
 NATIVE_FLAGS=$$($(MAKE) --no-print-directory print-flags FC=$$FC)
 GFORTRAN=gfortran
 FC_FORCE=
+PKG_CONFIG=pkg-config
+CAFFEINE_PKG=caffeine
+RUN_FPM_SH=../run-fpm.sh
 
 # ----------------------------------------------------------------
 
 SHELL = bash
 
-all: gcc
+all: 
+	@echo "------------------------------------------------------------------------------"
+	@echo 
+	@echo "This Makefile builds the native-multi-image smoke test that exercises"
+	@echo "native compiler support for multi-image features in Fortran."
+	@echo 
+	@echo "The test is automatically adjusted to the known/expected feature support"
+	@echo "based on detected Fortran compiler version."
+	@echo "In all cases the Makefile attempts to choose appropriate compiler flags," 
+	@echo "but these and other settings can be overridden (see top of Makefile)."
+	@echo "Execution commands for the built test are best-effort and might need"
+	@echo "adjustment based on your particular platform."
+	@echo 
+	@echo "Make Targets:"
+	@echo 
+	@echo "- 'make gcc' | 'make cce' | 'make intel' | 'make nag' :"
+	@echo "  Build the test using commands appropriate for the selected compiler family,"
+	@echo "  to evaluate built-in multi-image feature support. The FC_FORCE variable"
+	@echo "  can optionally be set to override the compiler command name."
+	@echo 
+	@echo "- 'make prif' :"
+	@echo "  Build the test and link the Caffeine library to provide multi-image feature"
+	@echo "  support through PRIF. This uses pkg-config to find Caffeine and may require setting:"
+	@echo "    PKG_CONFIG_PATH=<Caffeine_prefix>/lib/pkgconfig"
+	@echo "  Alternatively within an FPM-driven Caffeine build tree you simply can run:"
+	@echo "    ./run-fpm.sh run"
+	@echo 
+	@echo "------------------------------------------------------------------------------"
 
+
+PRINT_FLAGS_STAND_ALONE?=-s
 print-flags:
 	@$$FC print-native-flags.F90 -o print-native-flags
-	@./print-native-flags -s
+	@./print-native-flags $(PRINT_FLAGS_STAND_ALONE)
 	@rm -f print-native-flags
+
+
+prif:
+	@export PRINT_FLAGS_STAND_ALONE= ; \
+	if [[ -r $(RUN_FPM_SH) ]] ; then \
+	  FPM_PREFIX=$$(grep PREFIX= $(RUN_FPM_SH) | cut -d= -f2) ; \
+	  [[ -n $$FPM_PREFIX ]] && export PKG_CONFIG_PATH+=:$$FPM_PREFIX/lib/pkgconfig ; \
+	fi ; \
+	set -ex ; \
+	$(PKG_CONFIG) --modversion $(CAFFEINE_PKG) >/dev/null ; \
+	( $(PKG_CONFIG) --path $(CAFFEINE_PKG) 2>/dev/null || exit 0 ) ; \
+	export FC=$(if $(FC_FORCE),$(FC_FORCE),$$($(PKG_CONFIG) --var=CAFFEINE_FC $(CAFFEINE_PKG))) ; \
+	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
+	$$FC $$NATIVE_FLAGS \
+	    native-multi-image.F90 -o native-multi-image-prif \
+	    $$($(PKG_CONFIG) --libs-only-L $(CAFFEINE_PKG)) \
+	    $$($(PKG_CONFIG) --libs-only-l $(CAFFEINE_PKG))
+	env GASNET_PSHM_NODES=$(NUM_IMAGES) ./native-multi-image-prif
+
 
 gcc:
 	@set -x ; \
 	export FC=$(if $(FC_FORCE),$(FC_FORCE),$(GFORTRAN)) ; \
 	export NATIVE_FLAGS="$(NATIVE_FLAGS)" && \
+	( [[ -n $$NATIVE_FLAGS ]] || \
+	  ( echo ERROR: Currently requires GFortran 16 or later. ; exit 1 ) ) && \
 	$$FC -g -fcoarray=lib $$NATIVE_FLAGS $(FLAGS) \
 	    native-multi-image.F90 -o native-multi-image-gcc -lcaf_shmem
 	env GFORTRAN_NUM_IMAGES=$(NUM_IMAGES) ./native-multi-image-gcc
