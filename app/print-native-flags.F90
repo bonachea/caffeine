@@ -59,8 +59,6 @@ subroutine write_flags
      call no("COARRAY_LOCAL_ACCESS")
      call no("PUTGET")
 
-     call yes("EVENT")
-     call  no("EVENT_QUERY")
      call no("LOCK")
      call  yes("LOCK_TYPE")
      call no("NOTIFY")
