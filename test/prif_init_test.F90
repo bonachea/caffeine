@@ -58,7 +58,7 @@ contains
     type(test_diagnosis_t) :: diag
     integer stat
 
-    call prif_init(stat)
+    call prif_init()
     call prif_init(stat)
     diag = stat .equalsExpected. PRIF_STAT_ALREADY_INIT
   end function
