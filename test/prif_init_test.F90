@@ -58,7 +58,9 @@ contains
     type(test_diagnosis_t) :: diag
     integer stat
 
-    call prif_init(stat)
+#   if CAF_PRIF_VERSION >= 9
+      call prif_init()
+#   endif
     call prif_init(stat)
     diag = stat .equalsExpected. PRIF_STAT_ALREADY_INIT
   end function
