@@ -185,7 +185,11 @@ module prif
 
     module subroutine prif_init(stat)
       implicit none
+#   if CAF_PRIF_VERSION >= 9
+      integer(c_int), optional, intent(out) :: stat
+#   else
       integer(c_int), intent(out) :: stat
+#   endif
     end subroutine
 
     module subroutine prif_register_stop_callback(callback)
