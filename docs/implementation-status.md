@@ -37,7 +37,7 @@ selected constant values from `ISO_FORTRAN_ENV` of the hosting compiler.
 
 | Procedure | Status | Notes |
 |-----------|--------|-------|
-| `prif_init` | **YES** |  |
+| `prif_init` | **YES** | includes optional stat argument expected in PRIF 0.9 |
 | `prif_stop`, `prif_error_stop` | **YES** |  |
 | `prif_fail_image` | **YES** | trivial implementation |
 | `prif_register_stop_callback` | **YES** |  |
