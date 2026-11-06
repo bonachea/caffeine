@@ -185,7 +185,7 @@ module prif
 
     module subroutine prif_init(stat)
       implicit none
-      integer(c_int), intent(out) :: stat
+      integer(c_int), optional, intent(out) :: stat
     end subroutine
 
     module subroutine prif_register_stop_callback(callback)

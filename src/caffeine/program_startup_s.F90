@@ -16,7 +16,7 @@ contains
     call_assert(shadow_init .eqv. prif_init_called_previously)
 
     if (prif_init_called_previously) then
-       stat = PRIF_STAT_ALREADY_INIT
+       if (present(stat)) stat = PRIF_STAT_ALREADY_INIT
     else
        call caf_caffeinate( &
           total_heap_size, &
@@ -43,7 +43,7 @@ contains
        ! signalled from within the C-based initialization code above
        call ieee_set_flag(ieee_inexact, .false.)
 
-       stat = 0
+       if (present(stat)) stat = 0
     end if
   end procedure
 
