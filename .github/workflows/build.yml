@@ -265,8 +265,6 @@ jobs:
           - os: macos-15
             compiler: flang
             network: udp
-            label: FPM-0.10
-            FPM_VERSION: 0.10.0
           - os: macos-26
             compiler: flang
             network: udp
@@ -300,8 +298,6 @@ jobs:
             version: 23
             network: udp
             container: phhargrove/llvm-flang:23.1.0-latest
-            label: FPM-0.10
-            FPM_VERSION: 0.10.0
           - os: ubuntu-24.04
             compiler: flang
             version: latest
@@ -317,7 +313,7 @@ jobs:
       COMPILER_VERSION: ${{ matrix.version || ( matrix.compiler == 'flang' && needs.setup.outputs.BREW_FLANG_VERSION ) || ( matrix.compiler == 'lfortran' && needs.setup.outputs.BREW_LFORTRAN_VERSION ) || 'unknown' }}
       FFLAGS: ${{ matrix.FFLAGS }} ${{ inputs.fflags }}
       CFLAGS: ${{ matrix.CFLAGS }} ${{ inputs.cflags }}
-      FPM_VERSION: ${{ matrix.FPM_VERSION || '0.13.0' }}
+      FPM_VERSION: ${{ matrix.FPM_VERSION || 'current' }}
       NETWORK_ARG: ${{ matrix.network && format('--network={0}',matrix.network) || '' }}
       CURL_OPTIONS: --retry 10 --retry-all-errors --fail -L
       CONFIGURE_ARGS: --prefix=install --enable-rpath --enable-debug --verbose ${{ matrix.CONFIGURE_ARGS }}
