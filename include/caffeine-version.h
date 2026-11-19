@@ -27,11 +27,15 @@
 #  error FORCE_PRIF_0_6 is not supported
 #elif FORCE_PRIF_0_7
 #  error FORCE_PRIF_0_7 is not supported
-#elif FORCE_PRIF_0_8
+#elif FORCE_PRIF_0_8 || FORCE_PRIF_REV == 8
 #  define CAF_PRIF_VERSION_MINOR 8
+#elif FORCE_PRIF_0_9 || FORCE_PRIF_REV == 9
+#  define CAF_PRIF_VERSION_MINOR 9
+#elif FORCE_PRIF_REV
+#  error Unsupported value of FORCE_PRIF_REV. You may need a different version of Caffeine to provide the PRIF revision your compiler expects. Please see documentation for details.
 #else
-#  define CAF_PRIF_VERSION_MINOR 8
+#  define CAF_PRIF_VERSION_MINOR 9
 #endif
-#define CAF_PRIF_VERSION (100 * CAF_PRIF_VERSION_MAJOR + CAF_PRIF_VERSION_MINOR)
+#define CAF_PRIF_VERSION (1000 * CAF_PRIF_VERSION_MAJOR + CAF_PRIF_VERSION_MINOR)
 
 #endif

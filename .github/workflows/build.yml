@@ -219,12 +219,12 @@ jobs:
             container: ghcr.io/lfortran/lfortran:v${{ needs.setup.outputs.BREW_LFORTRAN_VERSION }}.0
 
         # --- PRIF-old coverage ---
-        #  - os: ubuntu-24.04
-        #    compiler: flang
-        #    version: 23
-        #    label: PRIF-0.8
-        #    FFLAGS: -DFORCE_PRIF_0_8
-        #    container: phhargrove/llvm-flang:23.1.0-latest
+          - os: ubuntu-24.04
+            compiler: flang
+            version: 23
+            label: PRIF-0.8
+            FFLAGS: -DFORCE_PRIF_0_8
+            container: phhargrove/llvm-flang:23.1.0-latest
 
         # --- udp coverage for selected configs ---
           - os: macos-26

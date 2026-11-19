@@ -638,6 +638,14 @@ if ! [[ "$FFLAGS_lib $FFLAGS " =~ -[DU]ASSERTIONS[=\ ] ]] ; then
   fi
 fi
 
+if ! [[ "$FFLAGS_lib $FFLAGS" =~ -[DU]FORCE_PRIF_ ]] ; then
+  # compiler-specific PRIF revision forces, unless the user specified one
+  FORCE_PRIF_DEFN=$($FC $FFLAGS_lib $FFLAGS -E manifest/force_prif.F90 2>/dev/null | grep '^ *-[DU]FORCE' | xargs)
+  if [[ -n "$FORCE_PRIF_DEFN" ]] ; then
+    FFLAGS_lib+=" $FORCE_PRIF_DEFN"
+  fi
+fi
+
 # Ensure that certain preprocessor settings in FFLAGS are always appended to CFLAGS
 for opt in $FFLAGS_lib $FFLAGS; do
   case "$opt" in
