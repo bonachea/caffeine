@@ -32,11 +32,7 @@ subroutine write_flags
      call no("THIS_IMAGE_TEAM")
      call no("TEAM_NUMBER_TEAM")
 
-     call yes("EVENT_TYPE")
-     call yes("LOCK_TYPE")
-     call yes("NOTIFY_TYPE")
-
-     call set("-DIGNORE_FAILURES=8") ! type checks for event, notify, lock, team
+     call set("-DIGNORE_FAILURES=2") ! type checks for team
 #  elif __flang_major__ == 23
      call set("-fcoarray")
 
@@ -45,13 +41,8 @@ subroutine write_flags
      call no("PUTGET")
 
      call no("EVENT")
-     call  yes("EVENT_TYPE")
      call no("LOCK")
-     call  yes("LOCK_TYPE")
      call no("NOTIFY")
-     call  yes("NOTIFY_TYPE")
-
-     call set("-DIGNORE_FAILURES=6") ! type checks for event, notify, lock
 #  elif __flang_major__ >= 24
      call set("-fcoarray")
 
@@ -60,11 +51,7 @@ subroutine write_flags
      call no("PUTGET")
 
      call no("LOCK")
-     call  yes("LOCK_TYPE")
      call no("NOTIFY")
-     call  yes("NOTIFY_TYPE")
-
-     call set("-DIGNORE_FAILURES=4") ! type checks for notify, lock
 #  endif
 #elif __LFORTRAN__
 #  if   __LFORTRAN_MAJOR__ == 0 && __LFORTRAN_MINOR__ <= 63
