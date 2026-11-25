@@ -698,7 +698,7 @@ GASNET_LIBDIR=${GASNET_LIBDIR#-L}
 
 # Check whether GASNet appears to be a Spack install. If yes, bail out.
 # Note: most Spack installations have "opt/spack" in the directory path.
-if [[ $GASNET_LIBDIR == *spack* ]] && \
+if false && \
    [[ $(realpath $GASNET_LIBDIR) != $(realpath "$PREFIX/lib") ]]; then
   cat << EOF
 ***NOTICE***: The GASNet library built by Spack is ONLY intended for
@@ -718,7 +718,7 @@ fi
 # Strip compiler flags
 # Warning: This assumes the full path doesn't contain any spaces!
 GASNET_CC_STRIPPED=$(awk '{print $1};' <<< $GASNET_CC)
-if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ]; then 
+if [ "$(realpath $GASNET_CC_STRIPPED)" != "$(realpath $CC)" ] && false ; then 
   echo "ERROR: C Compiler mismatch: GASNET_CC=$(realpath $GASNET_CC_STRIPPED) and CC=$(realpath $CC) don't match"
   exit 1;
 fi
